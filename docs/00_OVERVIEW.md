@@ -87,9 +87,9 @@ MVTec HALCON 13 의 **Regions ▸ Features** 오퍼레이터 40종을, HALCON SD
 
 | 오퍼레이터 | 정의 | 검증 | 구현 | 비고 |
 |---|:--:|:--:|:--:|---|
-| area_center | ✅ | ⬜ | ⬜ | 1차 대상 |
+| area_center | ✅ | ✅ | ⬜ | 1차 대상 |
 | area_holes | ⬜ | ⬜ | ⬜ | 8-connectivity 기본 |
-| contlength | ✅ | ⬜ | ⬜ | 1차 대상 / 구멍 제외 |
+| contlength | ✅ | ✅ | ⬜ | 1차 대상 / 구멍 제외 |
 | diameter_region | ⬜ | ⬜ | ⬜ | |
 | connect_and_holes | ⬜ | ⬜ | ⬜ | connectivity 원문 미명시 |
 | euler_number | ⬜ | ⬜ | ⬜ | connectivity 원문 미명시 |
@@ -100,9 +100,9 @@ MVTec HALCON 13 의 **Regions ▸ Features** 오퍼레이터 40종을, HALCON SD
 
 | 오퍼레이터 | 정의 | 검증 | 구현 | 비고 |
 |---|:--:|:--:|:--:|---|
-| circularity | ✅ | ⬜ | ⬜ | 1차 대상 |
-| compactness | ✅ | ⬜ | ⬜ | 1차 대상 |
-| convexity | ✅ | ⬜ | ⬜ | 1차 대상 |
+| circularity | ✅ | ✅ | ⬜ | 1차 대상 |
+| compactness | ✅ | ✅ | ⬜ | 1차 대상 |
+| convexity | ✅ | ✅ | ⬜ | 1차 대상 |
 | rectangularity | ⬜ | ⬜ | ⬜ | **닫힌 수식 없음 — 최난도** |
 | roundness | ⬜ | ⬜ | ⬜ | 4출력 |
 | eccentricity | ⬜ | ⬜ | ⬜ | Rb=0 방어 필수 |
