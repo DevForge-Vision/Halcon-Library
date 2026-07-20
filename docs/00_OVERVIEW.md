@@ -22,7 +22,7 @@ MVTec HALCON 13 의 **Regions ▸ Features** 오퍼레이터 40종을, HALCON SD
 ## 3. 진행 방식
 
 ```
-[1단계] 문서 고도화        ← 지금 여기
+[1단계] 문서 고도화        ✅ 완료
         - 원문 수집 (완료: docs/reference/halcon13/)
         - 특징값 정의서 작성 (docs/02_DEFINITIONS.md)
         - 정의 검증 계획 수립 (docs/03_VERIFICATION.md)
@@ -32,11 +32,11 @@ MVTec HALCON 13 의 **Regions ▸ Features** 오퍼레이터 40종을, HALCON SD
         - HALCON 실측값과 대조 (가능한 환경에서)
         - 불일치 시 정의서 수정 → 재검증
 
-[3단계] 구현 (우선 5종)
+[3단계] 구현 (우선 5종)   ✅ 완료 — PASS 70/FAIL 0, MSVC 14.44 검증
         - 검증된 정의만 코드로 옮긴다
         - 단위 테스트가 기댓값과 일치해야 커밋
 
-[4단계] 확장
+[4단계] 확장              ← 지금 여기
         - 5종이 통과하면 나머지 35종을 같은 절차로 반복
 ```
 
@@ -87,9 +87,9 @@ MVTec HALCON 13 의 **Regions ▸ Features** 오퍼레이터 40종을, HALCON SD
 
 | 오퍼레이터 | 정의 | 검증 | 구현 | 비고 |
 |---|:--:|:--:|:--:|---|
-| area_center | ✅ | ✅ | ⬜ | 1차 대상 |
+| area_center | ✅ | ✅ | ✅ | 1차 대상 |
 | area_holes | ⬜ | ⬜ | ⬜ | 8-connectivity 기본 |
-| contlength | ✅ | ✅ | ⬜ | 1차 대상 / 구멍 제외 |
+| contlength | ✅ | ✅ | ✅ | 1차 대상 / 구멍 제외 |
 | diameter_region | ⬜ | ⬜ | ⬜ | |
 | connect_and_holes | ⬜ | ⬜ | ⬜ | connectivity 원문 미명시 |
 | euler_number | ⬜ | ⬜ | ⬜ | connectivity 원문 미명시 |
@@ -100,9 +100,9 @@ MVTec HALCON 13 의 **Regions ▸ Features** 오퍼레이터 40종을, HALCON SD
 
 | 오퍼레이터 | 정의 | 검증 | 구현 | 비고 |
 |---|:--:|:--:|:--:|---|
-| circularity | ✅ | ✅ | ⬜ | 1차 대상 |
-| compactness | ✅ | ✅ | ⬜ | 1차 대상 |
-| convexity | ✅ | ✅ | ⬜ | 1차 대상 |
+| circularity | ✅ | ✅ | ✅ | 1차 대상 |
+| compactness | ✅ | ✅ | ✅ | 1차 대상 |
+| convexity | ✅ | ✅ | ✅ | 1차 대상 |
 | rectangularity | ⬜ | ⬜ | ⬜ | **닫힌 수식 없음 — 최난도** |
 | roundness | ⬜ | ⬜ | ⬜ | 4출력 |
 | eccentricity | ⬜ | ⬜ | ⬜ | Rb=0 방어 필수 |
@@ -154,4 +154,5 @@ MVTec HALCON 13 의 **Regions ▸ Features** 오퍼레이터 40종을, HALCON SD
 - `docs/02_DEFINITIONS.md` — 특징값 정의서 (구현의 유일한 근거)
 - `docs/03_VERIFICATION.md` — 정의 검증 계획과 기댓값
 - `docs/reference/halcon13/` — HALCON 13 원문 수집 아카이브 (G1~G5, 2094줄)
+- `docs/04_IMPLEMENTATION_NOTES.md` — Phase 1 구현 노트 · 검증 실측 결과 · 문서 보정 이력
 - `CLAUDE.md` — AI 에이전트/신규 참여자용 작업 지침

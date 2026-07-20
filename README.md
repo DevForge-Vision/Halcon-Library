@@ -11,13 +11,15 @@
 ![C++](https://img.shields.io/badge/C%2B%2B-14-00599C?style=flat-square&logo=cplusplus&logoColor=white)
 ![Platform](https://img.shields.io/badge/platform-Windows%20x86%20%7C%20x64-0078D6?style=flat-square&logo=windows&logoColor=white)
 ![Toolset](https://img.shields.io/badge/VS-2015%20%7C%202022-5C2D91?style=flat-square&logo=visualstudio&logoColor=white)
-![OpenCV](https://img.shields.io/badge/OpenCV-internal%20only-5C3EE8?style=flat-square&logo=opencv&logoColor=white)
+![OpenCV](https://img.shields.io/badge/OpenCV-Phase%202%2B%20only-5C3EE8?style=flat-square&logo=opencv&logoColor=white)
 ![Charset](https://img.shields.io/badge/charset-MultiByte-6E7681?style=flat-square)
 
-![Status](https://img.shields.io/badge/status-정의%20단계-F5A623?style=flat-square)
+![Status](https://img.shields.io/badge/status-Phase%201%20완료-2EA043?style=flat-square)
 ![Operators](https://img.shields.io/badge/정의-5%20%2F%2040-informational?style=flat-square)
-![Verified](https://img.shields.io/badge/검증-0%20%2F%2040-lightgrey?style=flat-square)
-![Implemented](https://img.shields.io/badge/구현-0%20%2F%2040-lightgrey?style=flat-square)
+![Verified](https://img.shields.io/badge/검증-5%20%2F%2040-informational?style=flat-square)
+![Implemented](https://img.shields.io/badge/구현-5%20%2F%2040-informational?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-PASS%2070%20%2F%20FAIL%200-2EA043?style=flat-square)
+![Deps](https://img.shields.io/badge/dependencies-none-2EA043?style=flat-square)
 
 <br>
 
@@ -68,10 +70,10 @@ flowchart LR
 | 단계 | 상태 | 산출물 |
 |---|:--:|---|
 | ① 원문 수집 | ✅ **완료** | 40종 전부 · [`docs/reference/halcon13/`](docs/reference/halcon13/) (2,094줄) |
-| ② 정의서 | 🟡 **5 / 40** | [`docs/02_DEFINITIONS.md`](docs/02_DEFINITIONS.md) |
-| ③ 정의 검증 | 🟡 손계산 완료 · 실측 대기 | [`docs/03_VERIFICATION.md`](docs/03_VERIFICATION.md) |
-| ④ 구현 | ⬜ 미착수 | |
-| ⑤ 단위테스트 | ⬜ 미착수 | |
+| ② 정의서 | 🟢 **5 / 40 확정** | [`docs/02_DEFINITIONS.md`](docs/02_DEFINITIONS.md) |
+| ③ 정의 검증 | ✅ **판정 3건 확정** | [`docs/03_VERIFICATION.md`](docs/03_VERIFICATION.md) |
+| ④ 구현 | ✅ **완료** | 소스 9개 · **외부 의존성 0** · MSVC 14.44 컴파일 확인 |
+| ⑤ 단위테스트 | ✅ **PASS 70 / FAIL 0** | [`docs/04_IMPLEMENTATION_NOTES.md`](docs/04_IMPLEMENTATION_NOTES.md) |
 
 ### 1차 구현 대상 5종
 
@@ -80,11 +82,11 @@ flowchart LR
 
 | 오퍼레이터 | 값 | 정의 | 검증 | 구현 |
 |---|---|:--:|:--:|:--:|
-| `area_center` | 면적 · 무게중심 | ✅ | ⬜ | ⬜ |
-| `contlength` | 윤곽 길이 (구멍 제외) | ✅ | ⬜ | ⬜ |
-| `circularity` | 원형도 `min(1, F/(max²π))` | ✅ | ⬜ | ⬜ |
-| `compactness` | 조밀도 `max(1, L²/(4Fπ))` | ✅ | ⬜ | ⬜ |
-| `convexity` | 볼록도 `F_o / F_c` | ✅ | ⬜ | ⬜ |
+| `area_center` | 면적 · 무게중심 | ✅ | ✅ | ✅ |
+| `contlength` | 윤곽 길이 (구멍 제외) | ✅ | ✅ | ✅ |
+| `circularity` | 원형도 `min(1, F/(max²π))` | ✅ | ✅ | ✅ |
+| `compactness` | 조밀도 `max(1, L²/(4Fπ))` | ✅ | ✅ | ✅ |
+| `convexity` | 볼록도 `F_o / F_c` | ✅ | ✅ | ✅ |
 
 전체 40종 현황은 [`docs/00_OVERVIEW.md`](docs/00_OVERVIEW.md) 를 참고하세요.
 
@@ -158,6 +160,7 @@ HALCON 문서의 수식은 텍스트가 아니라 **MetaPost 인라인 SVG 글�
 | [`docs/01_ARCHITECTURE.md`](docs/01_ARCHITECTURE.md) | 설계 제약과 적용 패턴 |
 | [`docs/02_DEFINITIONS.md`](docs/02_DEFINITIONS.md) | **특징값 정의서 — 구현의 유일한 근거** |
 | [`docs/03_VERIFICATION.md`](docs/03_VERIFICATION.md) | 기준 도형 · 기댓값 손계산 · HDevelop 검증 스크립트 |
+| [`docs/04_IMPLEMENTATION_NOTES.md`](docs/04_IMPLEMENTATION_NOTES.md) | **Phase 1 구현 노트 · 검증 실측 결과 · 문서 보정 이력** |
 | [`docs/reference/halcon13/`](docs/reference/halcon13/) | HALCON 13 원문 수집 아카이브 (G1~G5) |
 
 ---
