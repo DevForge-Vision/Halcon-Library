@@ -1,0 +1,84 @@
+# =====================================================================================
+# .gitattributes — 줄바꿈(EOL) 정규화 및 언어 통계 설정
+#
+#   저장소 안(index)에는 항상 LF 로 저장하고,
+#   체크아웃 시 파일 종류에 따라 작업트리 EOL 을 확정한다.
+#   -> "LF will be replaced by CRLF" 경고가 사라진다.
+#
+#   ※ 이 파일을 추가한 뒤 한 번은 아래로 재정규화해야 한다.
+#        git add --renormalize .
+#        git commit -m "chore: EOL 재정규화"
+# =====================================================================================
+
+# 기본 — Git 이 텍스트/바이너리를 판별하고 index 는 LF 로 정규화
+* text=auto
+
+# -------------------------------------------------------------------------------------
+# C++ 소스 — Visual Studio 환경이므로 작업트리는 CRLF
+# -------------------------------------------------------------------------------------
+*.h     text eol=crlf
+*.hpp   text eol=crlf
+*.c     text eol=crlf
+*.cpp   text eol=crlf
+*.inl   text eol=crlf
+
+# MFC / VS 프로젝트 파일
+*.sln       text eol=crlf
+*.vcxproj   text eol=crlf
+*.filters   text eol=crlf
+*.props     text eol=crlf
+
+# 배치 스크립트 — CRLF 가 아니면 cmd.exe 가 오작동한다
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+
+# -------------------------------------------------------------------------------------
+# 문서 / 빌드 설정 — LF
+# -------------------------------------------------------------------------------------
+*.md            text eol=lf
+CMakeLists.txt  text eol=lf
+*.cmake         text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+*.json          text eol=lf
+*.sh            text eol=lf
+.gitattributes  text eol=lf
+.gitignore      text eol=lf
+.editorconfig   text eol=lf
+
+# -------------------------------------------------------------------------------------
+# 바이너리 — 절대 EOL 변환 금지
+# -------------------------------------------------------------------------------------
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.bmp   binary
+*.tif   binary
+*.tiff  binary
+*.gif   binary
+*.ico   binary
+*.pdf   binary
+*.zip   binary
+*.7z    binary
+*.lib   binary
+*.dll   binary
+*.exe   binary
+*.obj   binary
+*.pdb   binary
+*.pptx  binary
+*.xlsx  binary
+*.docx  binary
+
+# -------------------------------------------------------------------------------------
+# linguist — 언어 통계 / diff 표시 조정
+#
+#   docs/reference/halcon13/ 는 HALCON 13 원문을 복원한 "수집 아카이브"다.
+#   본 저장소가 작성한 코드가 아니므로 언어 통계에서 제외한다.
+# -------------------------------------------------------------------------------------
+docs/reference/halcon13/*.md    linguist-documentation=true
+docs/reference/**              linguist-documentation=true
+
+# 소스는 반드시 언어 통계에 잡히게 한다
+src/**      linguist-detectable=true
+include/**  linguist-detectable=true
+test/**     linguist-detectable=true

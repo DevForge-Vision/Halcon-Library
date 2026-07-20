@@ -1,0 +1,45 @@
+# =====================================================================================
+# CI — 빌드 및 기준 도형 검증
+#
+#   이 워크플로의 핵심 가치는 "Phase 1 은 외부 의존성이 0" 이라는 사실의 증명이다.
+#   OpenCV / HALCON SDK / 어떤 패키지 설치 단계도 없이,
+#   Windows(MSVC) 와 Linux(g++) 두 곳에서 그대로 빌드되고 테스트가 통과해야 한다.
+#   설치 단계가 하나라도 추가된다면 그것은 의존성이 생겼다는 뜻이다.
+# =====================================================================================
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows / MSVC
+            os: windows-latest
+          - name: Linux / g++
+            os: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 의존성 설치 단계 없음 — 이것이 이 CI 의 요점이다.
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Test (기준 도형 S1~S7)
+        run: ctest --test-dir build -C Release --output-on-failure

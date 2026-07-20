@@ -14,6 +14,7 @@
 ![OpenCV](https://img.shields.io/badge/OpenCV-Phase%202%2B%20only-5C3EE8?style=flat-square&logo=opencv&logoColor=white)
 ![Charset](https://img.shields.io/badge/charset-MultiByte-6E7681?style=flat-square)
 
+[![CI](https://github.com/DevForge-Vision/Halcon-Library/actions/workflows/ci.yml/badge.svg)](https://github.com/DevForge-Vision/Halcon-Library/actions/workflows/ci.yml)
 ![Status](https://img.shields.io/badge/status-Phase%201%20완료-2EA043?style=flat-square)
 ![Operators](https://img.shields.io/badge/정의-5%20%2F%2040-informational?style=flat-square)
 ![Verified](https://img.shields.io/badge/검증-5%20%2F%2040-informational?style=flat-square)
@@ -156,6 +157,7 @@ HALCON 문서의 수식은 텍스트가 아니라 **MetaPost 인라인 SVG 글�
 | 문서 | 내용 |
 |---|---|
 | [`CLAUDE.md`](CLAUDE.md) | **작업 시작 전 필수.** AI 에이전트 / 신규 참여자 지침 |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | 빌드·테스트 방법과 기여 절차 요약 |
 | [`docs/00_OVERVIEW.md`](docs/00_OVERVIEW.md) | 범위 · 원칙 · 함정 14건 · 40종 현황표 |
 | [`docs/01_ARCHITECTURE.md`](docs/01_ARCHITECTURE.md) | 설계 제약과 적용 패턴 |
 | [`docs/02_DEFINITIONS.md`](docs/02_DEFINITIONS.md) | **특징값 정의서 — 구현의 유일한 근거** |

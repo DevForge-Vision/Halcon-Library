@@ -1,0 +1,17 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 작업 지침 (필독)
+    url: https://github.com/DevForge-Vision/Halcon-Library/blob/main/CLAUDE.md
+    about: 이 저장소의 원칙 · 함정 14건 · 코딩 규칙 · 작업 절차. 이슈를 쓰기 전에 먼저 읽어 주세요.
+  - name: 특징값 정의서
+    url: https://github.com/DevForge-Vision/Halcon-Library/blob/main/docs/02_DEFINITIONS.md
+    about: 구현의 유일한 근거. 값 관련 질문은 대부분 여기에 답이 있습니다.
+  - name: 검증 계획과 기댓값
+    url: https://github.com/DevForge-Vision/Halcon-Library/blob/main/docs/03_VERIFICATION.md
+    about: 기준 도형 S1~S7 정의와 손계산 기댓값, 허용 오차 기준.
+  - name: 구현 노트 (값이 안 맞을 때 먼저 볼 것)
+    url: https://github.com/DevForge-Vision/Halcon-Library/blob/main/docs/04_IMPLEMENTATION_NOTES.md
+    about: 디지털 원의 체인코드가 2πR 보다 +5.5% 크다는 점 등, 오해하기 쉬운 실측 결과 정리.
+  - name: 기여 방법
+    url: https://github.com/DevForge-Vision/Halcon-Library/blob/main/CONTRIBUTING.md
+    about: 빌드 · 테스트 · PR 절차 요약.

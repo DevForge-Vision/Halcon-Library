@@ -1,0 +1,106 @@
+name: 값 불일치 리포트
+description: 본 라이브러리의 계산값이 HALCON 실측값과 다를 때 사용합니다. 이 저장소에서 가장 중요한 이슈 유형입니다.
+title: "[값 불일치] "
+labels: ["value-mismatch", "priority-high"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > **이 프로젝트의 유일한 성공 기준은 "HALCON 실측값과 일치하는가" 입니다.**
+        > 값 불일치는 최우선 처리 대상입니다. 아래 항목을 최대한 채워 주세요.
+        >
+        > 값이 아니라 크래시 · 빌드 오류 · 성능 문제라면 blank issue 를 사용해 주세요.
+
+  - type: dropdown
+    id: operator
+    attributes:
+      label: 오퍼레이터
+      description: 값이 어긋난 오퍼레이터를 고르세요.
+      options:
+        - area_center
+        - contlength
+        - circularity
+        - compactness
+        - convexity
+        - 기타 (아래 본문에 이름을 적어 주세요)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: shape
+    attributes:
+      label: 시험 도형
+      description: "`docs/03_VERIFICATION.md` §2 의 기준 도형 ID 입니다."
+      options:
+        - S1 정사각형 100x100
+        - S2 원판 R=50
+        - S3 링(도넛)
+        - S4 가로선 1x100
+        - S5 L자
+        - S6 단일 픽셀
+        - S7 빈 리전
+        - 실제 검사 이미지 (아래에 조건을 기재)
+    validations:
+      required: true
+
+  - type: textarea
+    id: values
+    attributes:
+      label: 수치 대조
+      description: 상대오차 = |본 라이브러리 − HALCON| / |HALCON| 입니다. 소수점을 자르지 말고 원본 그대로 붙여 주세요.
+      value: |
+        | 항목 | 값 |
+        |---|---|
+        | HALCON 실측값 |  |
+        | 본 라이브러리 값 |  |
+        | 상대오차 |  |
+    validations:
+      required: true
+
+  - type: input
+    id: halcon-version
+    attributes:
+      label: HALCON 버전
+      description: 본 라이브러리의 근거 원문은 HALCON 13 입니다. 다른 버전이면 정의 자체가 다를 수 있습니다.
+      placeholder: "예) HALCON 13.0.1.1 Progress / HDevelop"
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: 재현 코드
+      description: HDevelop 스크립트와 C++ 호출 코드를 같이 주시면 가장 빠릅니다.
+      render: cpp
+    validations:
+      required: true
+
+  - type: input
+    id: definition-section
+    attributes:
+      label: 관련 정의서 절
+      description: "`docs/02_DEFINITIONS.md` 의 어느 절에 해당하는 값인지 적어 주세요."
+      placeholder: "예) docs/02_DEFINITIONS.md §4.4 compactness"
+    validations:
+      required: true
+
+  - type: textarea
+    id: analysis
+    attributes:
+      label: 추정 원인 (선택)
+      description: |
+        짚이는 곳이 있으면 적어 주세요. 자주 나오는 원인은 다음과 같습니다.
+        - 곡선 도형의 기댓값을 연속 기하 공식(2πR 등)으로 잡음 → `docs/04_IMPLEMENTATION_NOTES.md` §3
+        - 클리핑 방향 혼동 (circularity 는 min, compactness 는 max)
+        - convexity 분자/분모 뒤집힘
+        - 좌표계 혼동 (HALCON 은 row/col, OpenCV 는 x/y)
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: 확인
+      options:
+        - label: "`docs/04_IMPLEMENTATION_NOTES.md` §3 (디지털 원의 체인코드는 2πR 보다 +5.5% 크다) 을 읽었고, 이 편차를 원인에서 배제했습니다."
+          required: true
+        - label: 최신 main 브랜치에서 재현했습니다.
+          required: true

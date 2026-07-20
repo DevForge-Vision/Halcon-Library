@@ -1,0 +1,74 @@
+name: 오퍼레이터 추가 요청
+description: HALCON 13 Regions/Features 오퍼레이터를 새로 구현해 달라고 요청합니다.
+title: "[추가] "
+labels: ["new-operator"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > **값이 틀린 40종보다, 값이 맞는 5종이 낫습니다.**
+        > 추가 요청은 "왜 필요한가"가 곧 우선순위입니다. 실제 검사 용도를 구체적으로 적어 주세요.
+
+  - type: input
+    id: operator
+    attributes:
+      label: 오퍼레이터 이름 (HALCON 원명)
+      description: HALCON 문서에 나오는 이름 그대로 적어 주세요. 임의로 바꾸지 마세요.
+      placeholder: "예) elliptic_axis"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: group
+    attributes:
+      label: 원문 그룹 파일
+      description: "`docs/reference/halcon13/` 의 어느 파일에 원문이 수집되어 있는지 고르세요."
+      options:
+        - G1_basic_size.md
+        - G2_shape_factors.md
+        - G3_geometry_runlength.md
+        - G4_moments.md
+        - G5_select_relation.md
+        - 아카이브에 없음 (원문 수집부터 필요)
+    validations:
+      required: true
+
+  - type: input
+    id: reference-url
+    attributes:
+      label: 원문 링크
+      description: MVTec HALCON 13 Reference 의 해당 오퍼레이터 페이지 URL.
+      placeholder: "https://www.mvtec.com/doc/halcon/13/en/..."
+
+  - type: textarea
+    id: reason
+    attributes:
+      label: 필요한 이유
+      description: |
+        어느 공정(코터 / 슬리터 / 롤프레스)의 어떤 불량 판별에 쓰는지 구체적으로 적어 주세요.
+        "있으면 좋을 것 같아서" 는 우선순위가 가장 낮습니다.
+      placeholder: |
+        예) 코터 바타입 — 스크래치와 이물을 구분해야 하는데, 면적/원형도만으로는 겹친다.
+            장축/단축비(elliptic_axis 기반 anisometry)가 있으면 가늘고 긴 스크래치를 분리할 수 있다.
+    validations:
+      required: true
+
+  - type: textarea
+    id: known-traps
+    attributes:
+      label: 알려진 함정 (선택)
+      description: "`docs/00_OVERVIEW.md` §5 의 함정 14건 중 이 오퍼레이터와 관련된 것이 있으면 적어 주세요."
+      placeholder: "예) 함정 #11 — elliptic_axis 의 Phi 부호 규약"
+
+  - type: checkboxes
+    id: process
+    attributes:
+      label: 진행 순서 확인 (필수)
+      description: 이 저장소는 순서를 어긴 구현을 받지 않습니다. 정의가 틀린 채로 짠 코드는 전부 폐기입니다.
+      options:
+        - label: "**정의 → 검증 → 구현** 순서를 지킬 것에 동의합니다. (`docs/02_DEFINITIONS.md` 작성 → `docs/03_VERIFICATION.md` 기댓값 손계산 → 그 다음 코드)"
+          required: true
+        - label: 근거는 `docs/reference/halcon13/` 의 원문이며, OpenCV 관례나 일반적인 컴퓨터비전 통념으로 대체하지 않겠습니다.
+          required: true
+        - label: 원문에 명시가 없으면 추측으로 채우지 않고 **미결 쟁점**으로 등록하겠습니다.
+          required: true
