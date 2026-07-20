@@ -65,14 +65,14 @@ void ContourSet::Flatten(std::vector<Point>& out) const
 {
 	out.clear();
 
-	size_t total = 0;
-	for (size_t i = 0; i < m_contours.size(); ++i)
+	std::size_t total = 0;
+	for (std::size_t i = 0; i < m_contours.size(); ++i)
 		total += m_contours[i].size();
 
 	out.reserve(total);
-	for (size_t i = 0; i < m_contours.size(); ++i)
+	for (std::size_t i = 0; i < m_contours.size(); ++i)
 	{
-		for (size_t k = 0; k < m_contours[i].size(); ++k)
+		for (std::size_t k = 0; k < m_contours[i].size(); ++k)
 			out.push_back(m_contours[i][k]);
 	}
 }
@@ -95,9 +95,9 @@ bool TraceOuterContours(const RegionData& region, ContourSet& out)
 		//----------------------------------------------------------------------------
 		// 1) 런 단위 8-연결 성분 라벨링
 		//----------------------------------------------------------------------------
-		std::vector<int> parent(static_cast<size_t>(runCount));
+		std::vector<int> parent(static_cast<std::size_t>(runCount));
 		for (int i = 0; i < runCount; ++i)
-			parent[static_cast<size_t>(i)] = i;
+			parent[static_cast<std::size_t>(i)] = i;
 
 		int prevBegin = 0;
 		int prevEnd = 0;			// [prevBegin, prevEnd) 가 이전 행의 런 구간
@@ -107,9 +107,9 @@ bool TraceOuterContours(const RegionData& region, ContourSet& out)
 		int i = 0;
 		while (i < runCount)
 		{
-			const int curRow = runs[static_cast<size_t>(i)].row;
+			const int curRow = runs[static_cast<std::size_t>(i)].row;
 			int j = i;
-			while (j < runCount && runs[static_cast<size_t>(j)].row == curRow)
+			while (j < runCount && runs[static_cast<std::size_t>(j)].row == curRow)
 				++j;
 
 			// 이전 행이 바로 윗행이면 인접(겹침 또는 대각 접촉) 여부를 본다.
@@ -118,14 +118,14 @@ bool TraceOuterContours(const RegionData& region, ContourSet& out)
 				int m = prevBegin;
 				for (int k = i; k < j; ++k)
 				{
-					const Run& cur = runs[static_cast<size_t>(k)];
+					const Run& cur = runs[static_cast<std::size_t>(k)];
 
 					// 8-연결: [colBegin-1, colEnd+1] 구간이 겹치면 연결
-					while (m < prevEnd && runs[static_cast<size_t>(m)].colEnd + 1 < cur.colBegin)
+					while (m < prevEnd && runs[static_cast<std::size_t>(m)].colEnd + 1 < cur.colBegin)
 						++m;
 
 					int t = m;
-					while (t < prevEnd && runs[static_cast<size_t>(t)].colBegin <= cur.colEnd + 1)
+					while (t < prevEnd && runs[static_cast<std::size_t>(t)].colBegin <= cur.colEnd + 1)
 					{
 						UnionSet(parent, k, t);
 						++t;
@@ -141,24 +141,24 @@ bool TraceOuterContours(const RegionData& region, ContourSet& out)
 		}
 
 		// 루트 → 순차 성분 ID
-		std::vector<int> labelOfRun(static_cast<size_t>(runCount), -1);
+		std::vector<int> labelOfRun(static_cast<std::size_t>(runCount), -1);
 		std::vector<int> firstRunOfLabel;			// 성분별 최초(스캔순) 런 인덱스
 		std::vector<long long> pixelsOfLabel;		// 성분별 픽셀 수 (폭주 방지용)
 		{
-			std::vector<int> labelOfRoot(static_cast<size_t>(runCount), -1);
+			std::vector<int> labelOfRoot(static_cast<std::size_t>(runCount), -1);
 			for (int k = 0; k < runCount; ++k)
 			{
 				const int root = FindRoot(parent, k);
-				if (labelOfRoot[static_cast<size_t>(root)] < 0)
+				if (labelOfRoot[static_cast<std::size_t>(root)] < 0)
 				{
-					labelOfRoot[static_cast<size_t>(root)] = static_cast<int>(firstRunOfLabel.size());
+					labelOfRoot[static_cast<std::size_t>(root)] = static_cast<int>(firstRunOfLabel.size());
 					firstRunOfLabel.push_back(k);
 					pixelsOfLabel.push_back(0);
 				}
-				const int label = labelOfRoot[static_cast<size_t>(root)];
-				labelOfRun[static_cast<size_t>(k)] = label;
-				pixelsOfLabel[static_cast<size_t>(label)] +=
-					static_cast<long long>(runs[static_cast<size_t>(k)].colEnd) - runs[static_cast<size_t>(k)].colBegin + 1;
+				const int label = labelOfRoot[static_cast<std::size_t>(root)];
+				labelOfRun[static_cast<std::size_t>(k)] = label;
+				pixelsOfLabel[static_cast<std::size_t>(label)] +=
+					static_cast<long long>(runs[static_cast<std::size_t>(k)].colEnd) - runs[static_cast<std::size_t>(k)].colBegin + 1;
 			}
 		}
 
@@ -174,7 +174,7 @@ bool TraceOuterContours(const RegionData& region, ContourSet& out)
 		if (imgWidth <= 0 || imgHeight <= 0)
 			return false;
 
-		std::vector<int> labelImage(static_cast<size_t>(imgWidth) * static_cast<size_t>(imgHeight), -1);
+		std::vector<int> labelImage(static_cast<std::size_t>(imgWidth) * static_cast<std::size_t>(imgHeight), -1);
 
 		// (row, col) → 라벨 이미지 인덱스
 		const int offsetRow = 1 - minRow;
@@ -182,24 +182,24 @@ bool TraceOuterContours(const RegionData& region, ContourSet& out)
 
 		for (int k = 0; k < runCount; ++k)
 		{
-			const Run& r = runs[static_cast<size_t>(k)];
+			const Run& r = runs[static_cast<std::size_t>(k)];
 			const int y = r.row + offsetRow;
-			const size_t base = static_cast<size_t>(y) * static_cast<size_t>(imgWidth);
-			const int label = labelOfRun[static_cast<size_t>(k)];
+			const std::size_t base = static_cast<std::size_t>(y) * static_cast<std::size_t>(imgWidth);
+			const int label = labelOfRun[static_cast<std::size_t>(k)];
 
 			for (int c = r.colBegin; c <= r.colEnd; ++c)
-				labelImage[base + static_cast<size_t>(c + offsetCol)] = label;
+				labelImage[base + static_cast<std::size_t>(c + offsetCol)] = label;
 		}
 
 		//----------------------------------------------------------------------------
 		// 3) 성분별 Moore 추적
 		//----------------------------------------------------------------------------
 		const int labelCount = static_cast<int>(firstRunOfLabel.size());
-		out.m_contours.reserve(static_cast<size_t>(labelCount));
+		out.m_contours.reserve(static_cast<std::size_t>(labelCount));
 
 		for (int label = 0; label < labelCount; ++label)
 		{
-			const Run& startRun = runs[static_cast<size_t>(firstRunOfLabel[static_cast<size_t>(label)])];
+			const Run& startRun = runs[static_cast<std::size_t>(firstRunOfLabel[static_cast<std::size_t>(label)])];
 
 			// 최상단-최좌측 픽셀 (런이 스캔 순으로 정렬돼 있으므로 이것이 곧 외곽 시작점이다)
 			const Point start(startRun.row, startRun.colBegin);
@@ -212,7 +212,7 @@ bool TraceOuterContours(const RegionData& region, ContourSet& out)
 			bool hasSecond = false;
 
 			// 폭주 방지: 픽셀 수의 8배 + 여유
-			const long long maxSteps = pixelsOfLabel[static_cast<size_t>(label)] * 8 + 16;
+			const long long maxSteps = pixelsOfLabel[static_cast<std::size_t>(label)] * 8 + 16;
 			long long stepGuard = 0;
 
 			while (true)
@@ -239,7 +239,7 @@ bool TraceOuterContours(const RegionData& region, ContourSet& out)
 					if (y < 0 || y >= imgHeight || x < 0 || x >= imgWidth)
 						continue;	// 방어 (패딩 덕분에 정상적으로는 발생하지 않는다)
 
-					if (labelImage[static_cast<size_t>(y) * static_cast<size_t>(imgWidth) + static_cast<size_t>(x)] == label)
+					if (labelImage[static_cast<std::size_t>(y) * static_cast<std::size_t>(imgWidth) + static_cast<std::size_t>(x)] == label)
 					{
 						next = Point(cr, cc);
 
@@ -300,14 +300,14 @@ double ComputeContourLength(const ContourSet& contours)
 
 	double total = 0.0;
 
-	for (size_t i = 0; i < contours.m_contours.size(); ++i)
+	for (std::size_t i = 0; i < contours.m_contours.size(); ++i)
 	{
 		const std::vector<Point>& chain = contours.m_contours[i];
-		const size_t n = chain.size();
+		const std::size_t n = chain.size();
 		if (n < 2)
 			continue;	// 스텝 없음
 
-		for (size_t k = 0; k < n; ++k)
+		for (std::size_t k = 0; k < n; ++k)
 		{
 			const Point& a = chain[k];
 			const Point& b = chain[(k + 1) % n];	// 마지막 → 첫 점 (닫힘)

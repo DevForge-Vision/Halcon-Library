@@ -3,6 +3,7 @@
 //====================================================================================
 #include "FeatureContext.h"
 
+#include <cstddef>
 #include <cmath>
 
 namespace glim { namespace halcon { namespace core {
@@ -121,10 +122,10 @@ double FeatureContext::GetMaxContourDistance() const
 	const ContourSet& contours = GetContours();
 
 	double maxSquared = 0.0;
-	for (size_t i = 0; i < contours.m_contours.size(); ++i)
+	for (std::size_t i = 0; i < contours.m_contours.size(); ++i)
 	{
 		const std::vector<Point>& chain = contours.m_contours[i];
-		for (size_t k = 0; k < chain.size(); ++k)
+		for (std::size_t k = 0; k < chain.size(); ++k)
 		{
 			const double dr = static_cast<double>(chain[k].row) - centerRow;
 			const double dc = static_cast<double>(chain[k].col) - centerCol;

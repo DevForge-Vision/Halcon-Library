@@ -31,7 +31,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # 의존성 설치 단계 없음 — 이것이 이 CI 의 요점이다.
 

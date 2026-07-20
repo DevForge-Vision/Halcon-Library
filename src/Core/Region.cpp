@@ -3,6 +3,7 @@
 //====================================================================================
 #include "Region.h"
 
+#include <cstddef>
 #include <algorithm>
 #include <new>
 
@@ -38,7 +39,7 @@ void RegionData::Assign(std::vector<Run>& runs)
 	// 유효한 런만 추린다.
 	std::vector<Run> valid;
 	valid.reserve(runs.size());
-	for (size_t i = 0; i < runs.size(); ++i)
+	for (std::size_t i = 0; i < runs.size(); ++i)
 	{
 		if (runs[i].colEnd >= runs[i].colBegin)
 			valid.push_back(runs[i]);
@@ -50,7 +51,7 @@ void RegionData::Assign(std::vector<Run>& runs)
 
 	m_runs.reserve(valid.size());
 	m_runs.push_back(valid[0]);
-	for (size_t i = 1; i < valid.size(); ++i)
+	for (std::size_t i = 1; i < valid.size(); ++i)
 	{
 		Run& last = m_runs.back();
 		const Run& cur = valid[i];
@@ -76,7 +77,7 @@ void RegionData::Assign(std::vector<Run>& runs)
 long RegionData::GetArea() const
 {
 	long long total = 0;
-	for (size_t i = 0; i < m_runs.size(); ++i)
+	for (std::size_t i = 0; i < m_runs.size(); ++i)
 		total += static_cast<long long>(m_runs[i].colEnd) - m_runs[i].colBegin + 1;
 
 	return static_cast<long>(total);
@@ -104,7 +105,7 @@ bool RegionData::GetCenter(double& row, double& column) const
 	double sumRow = 0.0;
 	double sumCol = 0.0;
 
-	for (size_t i = 0; i < m_runs.size(); ++i)
+	for (std::size_t i = 0; i < m_runs.size(); ++i)
 	{
 		const Run& r = m_runs[i];
 		const double count = static_cast<double>(r.colEnd - r.colBegin + 1);
@@ -134,7 +135,7 @@ bool RegionData::GetBoundingBox(int& minRow, int& maxRow, int& minCol, int& maxC
 	minCol = m_runs.front().colBegin;
 	maxCol = m_runs.front().colEnd;
 
-	for (size_t i = 1; i < m_runs.size(); ++i)
+	for (std::size_t i = 1; i < m_runs.size(); ++i)
 	{
 		if (m_runs[i].colBegin < minCol) minCol = m_runs[i].colBegin;
 		if (m_runs[i].colEnd   > maxCol) maxCol = m_runs[i].colEnd;
@@ -215,7 +216,7 @@ Region Region::FromMask(const unsigned char* data, int width, int height, int st
 		std::vector<Run> runs;
 		for (int y = 0; y < height; ++y)
 		{
-			const unsigned char* line = data + static_cast<size_t>(y) * static_cast<size_t>(lineStride);
+			const unsigned char* line = data + static_cast<std::size_t>(y) * static_cast<std::size_t>(lineStride);
 
 			int x = 0;
 			while (x < width)
@@ -268,7 +269,7 @@ Region Region::FromRuns(const int* rows, const int* colBegins, const int* colEnd
 			return region;
 
 		std::vector<Run> runs;
-		runs.reserve(static_cast<size_t>(count));
+		runs.reserve(static_cast<std::size_t>(count));
 		for (int i = 0; i < count; ++i)
 		{
 			Run run;

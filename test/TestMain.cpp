@@ -14,6 +14,7 @@
 #include "GlimHalcon.h"
 #include "Shapes.h"
 
+#include <cstddef>
 #include <cstdio>
 #include <cmath>
 #include <string>
@@ -100,7 +101,7 @@ void Note(const char* item, double got, double docExpect, const char* reason)
 	std::printf("  [NOTE] %-34s got=%18.9f  doc=%18.9f  %s\n", item, got, docExpect, reason);
 
 	char buffer[512];
-	std::sprintf(buffer, "%s : got=%.6f, docs=%.6f — %s", item, got, docExpect, reason);
+	std::sprintf(buffer, "%s : got=%.6f, docs=%.6f -> %s", item, got, docExpect, reason);
 	g_noteMessages.push_back(std::string(buffer));
 }
 
@@ -323,14 +324,14 @@ int main()
 	if (!g_failMessages.empty())
 	{
 		std::printf("\n실패 목록\n");
-		for (size_t i = 0; i < g_failMessages.size(); ++i)
+		for (std::size_t i = 0; i < g_failMessages.size(); ++i)
 			std::printf("  - %s\n", g_failMessages[i].c_str());
 	}
 
 	if (!g_noteMessages.empty())
 	{
 		std::printf("\n문서 갱신 필요 목록 (docs/03_VERIFICATION.md)\n");
-		for (size_t i = 0; i < g_noteMessages.size(); ++i)
+		for (std::size_t i = 0; i < g_noteMessages.size(); ++i)
 			std::printf("  - %s\n", g_noteMessages[i].c_str());
 	}
 

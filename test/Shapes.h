@@ -16,6 +16,7 @@
 #ifndef GLIM_HALCON_TEST_SHAPES_H
 #define GLIM_HALCON_TEST_SHAPES_H
 
+#include <cstddef>
 #include <vector>
 
 #include "GlimHalcon.h"
@@ -34,7 +35,7 @@ public:
 	Mask(int width, int height)
 		: m_width(width)
 		, m_height(height)
-		, m_data(static_cast<size_t>(width) * static_cast<size_t>(height), 0)
+		, m_data(static_cast<std::size_t>(width) * static_cast<std::size_t>(height), 0)
 	{
 	}
 
@@ -42,7 +43,7 @@ public:
 	{
 		if (row < 0 || row >= m_height || col < 0 || col >= m_width)
 			return;
-		m_data[static_cast<size_t>(row) * static_cast<size_t>(m_width) + static_cast<size_t>(col)] = 1;
+		m_data[static_cast<std::size_t>(row) * static_cast<std::size_t>(m_width) + static_cast<std::size_t>(col)] = 1;
 	}
 
 	glim::halcon::Region ToRegion() const

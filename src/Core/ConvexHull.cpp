@@ -3,6 +3,7 @@
 //====================================================================================
 #include "ConvexHull.h"
 
+#include <cstddef>
 #include <algorithm>
 #include <cmath>
 
@@ -58,7 +59,7 @@ bool ComputeConvexHull(const std::vector<Point>& points, std::vector<Point>& hul
 		std::sort(pts.begin(), pts.end(), PointLess());
 		pts.erase(std::unique(pts.begin(), pts.end(), PointEqual()), pts.end());
 
-		const size_t n = pts.size();
+		const std::size_t n = pts.size();
 		if (n <= 2)
 		{
 			hull = pts;			// 점 1개 또는 선분
@@ -67,7 +68,7 @@ bool ComputeConvexHull(const std::vector<Point>& points, std::vector<Point>& hul
 
 		std::vector<Point> lower;
 		lower.reserve(n + 1);
-		for (size_t i = 0; i < n; ++i)
+		for (std::size_t i = 0; i < n; ++i)
 		{
 			while (lower.size() >= 2 && Cross(lower[lower.size() - 2], lower[lower.size() - 1], pts[i]) <= 0)
 				lower.pop_back();
@@ -76,7 +77,7 @@ bool ComputeConvexHull(const std::vector<Point>& points, std::vector<Point>& hul
 
 		std::vector<Point> upper;
 		upper.reserve(n + 1);
-		for (size_t i = n; i > 0; --i)
+		for (std::size_t i = n; i > 0; --i)
 		{
 			const Point& p = pts[i - 1];
 			while (upper.size() >= 2 && Cross(upper[upper.size() - 2], upper[upper.size() - 1], p) <= 0)
@@ -88,12 +89,12 @@ bool ComputeConvexHull(const std::vector<Point>& points, std::vector<Point>& hul
 		hull.reserve(lower.size() + upper.size());
 		if (!lower.empty())
 		{
-			for (size_t i = 0; i + 1 < lower.size(); ++i)
+			for (std::size_t i = 0; i + 1 < lower.size(); ++i)
 				hull.push_back(lower[i]);
 		}
 		if (!upper.empty())
 		{
-			for (size_t i = 0; i + 1 < upper.size(); ++i)
+			for (std::size_t i = 0; i + 1 < upper.size(); ++i)
 				hull.push_back(upper[i]);
 		}
 
@@ -120,7 +121,7 @@ long RasterizeHullArea(const std::vector<Point>& hull)
 {
 	try
 	{
-		const size_t n = hull.size();
+		const std::size_t n = hull.size();
 		if (n == 0)
 			return 0;
 		if (n == 1)
@@ -130,14 +131,14 @@ long RasterizeHullArea(const std::vector<Point>& hull)
 
 		int minRow = hull[0].row;
 		int maxRow = hull[0].row;
-		for (size_t i = 1; i < n; ++i)
+		for (std::size_t i = 1; i < n; ++i)
 		{
 			if (hull[i].row < minRow) minRow = hull[i].row;
 			if (hull[i].row > maxRow) maxRow = hull[i].row;
 		}
 
 		// 변의 개수: 정점이 2개면 선분 1개, 3개 이상이면 닫힌 폴리곤이므로 n 개
-		const size_t edgeCount = (n == 2) ? 1 : n;
+		const std::size_t edgeCount = (n == 2) ? 1 : n;
 
 		long long total = 0;
 
@@ -147,7 +148,7 @@ long RasterizeHullArea(const std::vector<Point>& hull)
 			double xMin = 0.0;
 			double xMax = 0.0;
 
-			for (size_t e = 0; e < edgeCount; ++e)
+			for (std::size_t e = 0; e < edgeCount; ++e)
 			{
 				const Point& p = hull[e];
 				const Point& q = hull[(e + 1) % n];
