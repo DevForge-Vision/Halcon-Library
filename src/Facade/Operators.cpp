@@ -22,6 +22,99 @@ namespace {
 
 const double kPi = 3.14159265358979323846;
 
+//------------------------------------------------------------------------------------
+// 값 계산 본체 — FeatureContext 하나를 받아 값 하나를 만든다.
+//
+// 개별 오퍼레이터와 ComputeFeatures(배치) 가 **똑같이 이 함수들을 호출한다.**
+// 계산식을 두 벌로 복제하면 언젠가 반드시 어긋나므로, 여기 한 곳에만 둔다.
+// 각 수식의 근거와 클리핑 방향은 아래 각 오퍼레이터의 주석 블록에 있다.
+//------------------------------------------------------------------------------------
+void ComputeAreaCenterValue(const core::FeatureContext& context, long& area, double& row, double& column)
+{
+	area = context.GetArea();
+	row = context.GetCenterRow();
+	column = context.GetCenterColumn();
+}
+
+double ComputeContLengthValue(const core::FeatureContext& context)
+{
+	double value = context.GetContourLength();
+
+	if (!(value >= 0.0))		// NaN 방어. Assertion: ContLength >= 0
+		value = 0.0;
+
+	return value;
+}
+
+double ComputeCircularityValue(const core::FeatureContext& context)
+{
+	const double area = static_cast<double>(context.GetArea());
+	if (area <= 0.0)
+		return 0.0;
+
+	const double maxDistance = context.GetMaxContourDistance();
+	if (maxDistance <= 0.0)
+		return 0.0;		// 단일 픽셀 등 축퇴 → 0 나눗셈 방어
+
+	const double denominator = maxDistance * maxDistance * kPi;
+	if (denominator <= 0.0)
+		return 0.0;
+
+	double value = area / denominator;
+
+	if (!(value == value))		// NaN 방어
+		value = 0.0;
+	if (value > 1.0)
+		value = 1.0;			// min(1, C')
+	if (value < 0.0)
+		value = 0.0;
+
+	return value;
+}
+
+double ComputeCompactnessValue(const core::FeatureContext& context)
+{
+	const double area = static_cast<double>(context.GetArea());
+	if (area <= 0.0)
+		return 0.0;		// F == 0 → 0
+
+	const double length = context.GetContourLength();
+
+	const double denominator = 4.0 * area * kPi;
+	if (denominator <= 0.0)
+		return 0.0;
+
+	double value = (length * length) / denominator;
+
+	if (!(value == value))		// NaN 방어
+		value = 0.0;
+	if (value < 1.0)
+		value = 1.0;			// max(1, C')
+
+	return value;
+}
+
+double ComputeConvexityValue(const core::FeatureContext& context)
+{
+	const double areaOriginal = static_cast<double>(context.GetArea());
+	if (areaOriginal <= 0.0)
+		return 0.0;
+
+	const double areaHull = static_cast<double>(context.GetConvexHullArea());
+	if (areaHull <= 0.0)
+		return 0.0;		// 0 나눗셈 방어
+
+	double value = areaOriginal / areaHull;
+
+	if (!(value == value))		// NaN 방어
+		value = 0.0;
+	if (value < 0.0)
+		value = 0.0;
+
+	// 주의: 정의서 §5 에는 클리핑이 없다. 1.0 으로 강제하지 않는다 (아래 Convexity 주석 참조).
+	return value;
+}
+
 }	// anonymous namespace
 
 //------------------------------------------------------------------------------------
@@ -46,9 +139,7 @@ void AreaCenter(const Region& region, long& area, double& row, double& column)
 			return;		// 빈 리전 규약
 
 		core::FeatureContext context(data);
-		area = context.GetArea();
-		row = context.GetCenterRow();
-		column = context.GetCenterColumn();
+		ComputeAreaCenterValue(context, area, row, column);
 	}
 	catch (...)
 	{
@@ -78,10 +169,7 @@ void ContLength(const Region& region, double& contLength)
 			return;
 
 		core::FeatureContext context(data);
-		contLength = context.GetContourLength();
-
-		if (!(contLength >= 0.0))	// NaN 방어. Assertion: ContLength >= 0
-			contLength = 0.0;
+		contLength = ComputeContLengthValue(context);
 	}
 	catch (...)
 	{
@@ -112,29 +200,7 @@ void Circularity(const Region& region, double& circularity)
 			return;
 
 		core::FeatureContext context(data);
-
-		const double area = static_cast<double>(context.GetArea());
-		if (area <= 0.0)
-			return;
-
-		const double maxDistance = context.GetMaxContourDistance();
-		if (maxDistance <= 0.0)
-			return;		// 단일 픽셀 등 축퇴 → 0 나눗셈 방어
-
-		const double denominator = maxDistance * maxDistance * kPi;
-		if (denominator <= 0.0)
-			return;
-
-		double value = area / denominator;
-
-		if (!(value == value))		// NaN 방어
-			value = 0.0;
-		if (value > 1.0)
-			value = 1.0;			// min(1, C')
-		if (value < 0.0)
-			value = 0.0;
-
-		circularity = value;
+		circularity = ComputeCircularityValue(context);
 	}
 	catch (...)
 	{
@@ -166,25 +232,7 @@ void Compactness(const Region& region, double& compactness)
 			return;
 
 		core::FeatureContext context(data);
-
-		const double area = static_cast<double>(context.GetArea());
-		if (area <= 0.0)
-			return;		// F == 0 → 0
-
-		const double length = context.GetContourLength();
-
-		const double denominator = 4.0 * area * kPi;
-		if (denominator <= 0.0)
-			return;
-
-		double value = (length * length) / denominator;
-
-		if (!(value == value))		// NaN 방어
-			value = 0.0;
-		if (value < 1.0)
-			value = 1.0;			// max(1, C')
-
-		compactness = value;
+		compactness = ComputeCompactnessValue(context);
 	}
 	catch (...)
 	{
@@ -212,31 +260,70 @@ void Convexity(const Region& region, double& convexity)
 		if (data == 0 || data->IsEmpty())
 			return;
 
-		core::FeatureContext context(data);
-
-		const double areaOriginal = static_cast<double>(context.GetArea());
-		if (areaOriginal <= 0.0)
-			return;
-
-		const double areaHull = static_cast<double>(context.GetConvexHullArea());
-		if (areaHull <= 0.0)
-			return;		// 0 나눗셈 방어
-
-		double value = areaOriginal / areaHull;
-
-		if (!(value == value))		// NaN 방어
-			value = 0.0;
-		if (value < 0.0)
-			value = 0.0;
-
 		// 주의: 정의서 §5 에는 클리핑이 없다. Assertion(C <= 1) 은 서술일 뿐이므로
 		// 여기서 1.0 으로 강제하지 않는다. 값이 1 을 넘으면 F_c 계산이 틀린 것이며
 		// (예: 폴리곤 기하 면적 사용), 그 오류를 감추지 않기 위해 그대로 노출한다.
-		convexity = value;
+		core::FeatureContext context(data);
+		convexity = ComputeConvexityValue(context);
 	}
 	catch (...)
 	{
 		convexity = 0.0;
+	}
+}
+
+//------------------------------------------------------------------------------------
+// 배치 계산 — 개별 오퍼레이터 5종을 한 번에 뽑는다.
+//
+// 존재 이유는 오직 하나, **중간산물 중복 계산 제거**다.
+//   개별 호출 : ContLength / Circularity / Compactness / Convexity 가 각자
+//               FeatureContext 를 새로 만들므로 윤곽 추적이 4회, hull 이 1회 일어난다.
+//   배치 호출 : FeatureContext 를 **하나만** 만들어 5종 헬퍼에 넘긴다.
+//               윤곽 추적 1회 + hull 1회로 끝난다.
+//
+// 값은 개별 오퍼레이터와 **완전히 동일하다.** 계산식이 같은 헬퍼 하나로 공유되기 때문이며,
+// 두 경로가 어긋날 여지 자체를 만들지 않았다.
+//
+// 계약
+//   - 진입 즉시 모든 필드를 0 으로 초기화한다.
+//   - 예외를 밖으로 던지지 않는다. 실패 시 전 필드가 0 이다 (빈 리전과 구분되지 않는다).
+//   - 스레드 안전: 전역/정적 가변 상태가 없다. 서로 다른 스레드가 같은 Region 을
+//     동시에 읽는 것은 안전하다 (Region 내부 데이터는 불변).
+//------------------------------------------------------------------------------------
+void ComputeFeatures(const Region& region, RegionFeatures& features)
+{
+	features.area = 0;
+	features.row = 0.0;
+	features.column = 0.0;
+	features.contLength = 0.0;
+	features.circularity = 0.0;
+	features.compactness = 0.0;
+	features.convexity = 0.0;
+
+	try
+	{
+		const core::RegionData* data = RegionInternal::GetData(region);
+		if (data == 0 || data->IsEmpty())
+			return;		// 빈 리전 규약 — 전 필드 0
+
+		// ★ 이 라인이 배치 API 의 전부다. 컨텍스트 하나를 5종이 공유한다.
+		core::FeatureContext context(data);
+
+		ComputeAreaCenterValue(context, features.area, features.row, features.column);
+		features.contLength = ComputeContLengthValue(context);
+		features.circularity = ComputeCircularityValue(context);
+		features.compactness = ComputeCompactnessValue(context);
+		features.convexity = ComputeConvexityValue(context);
+	}
+	catch (...)
+	{
+		features.area = 0;
+		features.row = 0.0;
+		features.column = 0.0;
+		features.contLength = 0.0;
+		features.circularity = 0.0;
+		features.compactness = 0.0;
+		features.convexity = 0.0;
 	}
 }
 

@@ -73,6 +73,39 @@ void Compactness(const Region& region, double& compactness);
 // HALCON: convexity(Regions : : : Convexity)          Assertion: C <= 1
 void Convexity  (const Region& region, double& convexity);
 
+//------------------------------------------------------------------------------------
+// 배치 계산 결과 — 위 오퍼레이터 5종이 내는 값 7개를 담는다.
+//
+//   필드의 의미·값 규약은 대응하는 개별 오퍼레이터와 **완전히 같다.**
+//   (row, column) 순서는 HALCON 관례 (Row, Column) = (y, x) 를 따른다.
+//
+// ⚠ 호환성 주의 (ABI)
+//   이 구조체는 크기와 레이아웃이 그대로 공개 경계다. 필드를 추가하면 sizeof 가 바뀌어
+//   이전 헤더로 컴파일된 호출부와 링크 시 조용히 깨진다. 그러므로
+//     - 필드는 **끝에만** 추가한다 (중간 삽입·순서 변경·타입 변경 금지)
+//     - 필드를 추가하는 변경은 **라이브러리와 사용처를 함께 재컴파일**해야 한다
+//   POD 로 유지한다 (생성자·가상함수·표준 컨테이너를 넣지 않는다). 그래야 툴셋(v140/v143)이
+//   달라도 레이아웃이 흔들리지 않는다.
+//------------------------------------------------------------------------------------
+struct RegionFeatures
+{
+	long   area;			// AreaCenter  의 Area   (픽셀 개수)
+	double row;				// AreaCenter  의 Row    (무게중심 y)
+	double column;			// AreaCenter  의 Column (무게중심 x)
+	double contLength;		// ContLength
+	double circularity;		// Circularity
+	double compactness;		// Compactness
+	double convexity;		// Convexity
+};
+
+// 5종 값을 한 번에 계산한다. 개별 호출과 **결과가 완전히 동일**하되,
+// 내부 중간산물(윤곽 추적 · convex hull)을 리전당 1회만 계산한다.
+//   개별 5회 호출: 윤곽 추적 4회 + hull 1회
+//   ComputeFeatures: 윤곽 추적 1회 + hull 1회
+// 5종 중 2종 이상이 필요하면 이쪽을 쓰는 편이 항상 유리하다.
+// 실패·빈 리전이면 전 필드가 0 이다 (개별 오퍼레이터와 같은 규약).
+void ComputeFeatures(const Region& region, RegionFeatures& features);
+
 }}	// namespace glim::halcon
 
 #endif	// GLIM_HALCON_H
