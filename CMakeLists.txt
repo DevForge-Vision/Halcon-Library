@@ -78,3 +78,35 @@ target_include_directories(GlimHalconTest
 
 enable_testing()
 add_test(NAME GlimHalconShapes COMMAND GlimHalconTest)
+
+#-------------------------------------------------------------------------------------
+# 예제 (docs/05_USER_GUIDE.md 에서 참조)
+#   외부 의존성 0. 공개 헤더 하나만 include 한다.
+#   끄려면: cmake -S . -B build -DGLIM_HALCON_BUILD_EXAMPLES=OFF
+#-------------------------------------------------------------------------------------
+option(GLIM_HALCON_BUILD_EXAMPLES "예제 실행파일을 빌드한다" ON)
+
+if(GLIM_HALCON_BUILD_EXAMPLES)
+	set(GLIM_HALCON_EXAMPLES
+		01_quickstart
+		02_from_binary_mask
+		03_from_runs
+		04_batch_features
+		05_largest_blob
+	)
+
+	foreach(example ${GLIM_HALCON_EXAMPLES})
+		add_executable(${example} examples/${example}.cpp)
+		target_link_libraries(${example} PRIVATE GlimHalcon)
+		set_target_properties(${example} PROPERTIES FOLDER "examples")
+	endforeach()
+
+	# 04 는 단순 예제가 아니라 **회귀 감시**다.
+	# 배치 API 결과가 개별 오퍼레이터 결과와 어긋나면 exit code 1 을 돌려준다.
+	add_test(NAME GlimHalconBatchFeatures COMMAND 04_batch_features)
+
+	# 05 도 회귀 감시다.
+	# 원샷 API 결과가 FromMask+SelectLargestBlob+ComputeFeatures 수동 조합과 어긋나거나,
+	# 최대 blob 선택·입력 검증이 기대와 다르면 exit code 1 을 돌려준다.
+	add_test(NAME GlimHalconLargestBlob COMMAND 05_largest_blob)
+endif()
