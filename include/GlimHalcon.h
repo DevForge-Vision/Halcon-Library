@@ -32,6 +32,12 @@ public:
 	//   width  : 열 개수(column), height : 행 개수(row)
 	//   stride : 한 행의 바이트 수 (0 이하이면 width 로 간주)
 	// 좌표 대응: row = y (0..height-1), col = x (0..width-1)
+	//
+	// 전제조건: 0 < stride 이면 stride >= width 여야 한다.
+	//   0 < stride < width 는 행 우선 버퍼로 성립할 수 없는 값이다(다음 행을 침범해 읽게 되고
+	//   마지막 행에서는 버퍼 끝을 넘는다). 이 경우 읽기를 시도하지 않고 **빈 리전을 반환**한다.
+	//   data == 0 / width <= 0 / height <= 0 과 같은 취급이다.
+	// 필요한 버퍼 크기: (0 < stride ? stride : width) * height 바이트.
 	static Region FromMask(const unsigned char* data, int width, int height, int stride);
 
 	// 런 배열로부터 생성한다. colEnd 는 **끝 포함**이다.

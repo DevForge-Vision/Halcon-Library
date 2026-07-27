@@ -211,6 +211,15 @@ Region Region::FromMask(const unsigned char* data, int width, int height, int st
 		if (data == 0 || width <= 0 || height <= 0)
 			return region;
 
+		// stride 규약: 0 이하이면 width 로 간주한다 (기존 규약 유지).
+		// 그러나 0 < stride < width 는 행 우선 버퍼로 성립할 수 없는 값이다.
+		//   그대로 읽으면 각 행이 다음 행을 침범하고, 마지막 행에서는 버퍼 끝을 넘는다.
+		//   width 로 보정해도 읽는 바이트 총량은 width*height 라 여전히 버퍼(stride*height)를 넘는다.
+		//   즉 "보정" 으로 안전해지지 않는다. 잘못된 값을 조용히 만들어내느니 읽지 않는다.
+		// → 빈 리전을 반환한다 (data == 0 / width <= 0 과 동일 취급).
+		if (stride > 0 && stride < width)
+			return region;
+
 		const int lineStride = (stride > 0) ? stride : width;
 
 		std::vector<Run> runs;
