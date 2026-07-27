@@ -67,3 +67,6 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# Claude Code 작업 디렉터리 (워크트리 등, 저장소 내용이 아니다)
+.claude/
