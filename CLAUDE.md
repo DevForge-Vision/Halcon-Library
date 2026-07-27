@@ -142,25 +142,37 @@ OpenCV  cv::Point(x, y)          ← 내부 전용, 경계에서 변환
 
 ---
 
-## 6. 현재 상태 (2026-07-20)
+## 6. 현재 상태 (2026-07-21 · Phase 1 완료 후 **작업 보류 중**)
 
 | 항목 | 상태 |
 |---|---|
 | 원문 수집 | ✅ 완료 — 40종 전부, `docs/reference/halcon13/` 2094줄 |
 | 아키텍처 설계 | ✅ 완료 — `docs/01_ARCHITECTURE.md` |
-| 정의서 | 🟡 5종 작성 (`area_center` `contlength` `circularity` `compactness` `convexity`) |
-| 검증 기댓값 | 🟡 5종 손계산 완료, HALCON 실측 미실시 |
-| 구현 | ⬜ 미착수 |
+| 정의서 | 🟡 **5종 / 40종** 확정 (`area_center` `contlength` `circularity` `compactness` `convexity`) |
+| 검증 기댓값 | ✅ 5종 손계산 완료 — 결정적 판정 3건(`P-1`~`P-3`) 전부 해소 |
+| 구현 | 🟡 **5종 / 40종 완료** — 소스 9개, 외부 의존성 0 |
+| 단위테스트 | ✅ **PASS 70 / FAIL 0** (기준 도형 S1~S7) |
+| HALCON 실물 대조 (V2) | ⬜ **미실시** — HALCON 13 환경 확보 시 수행 |
+
+**보류 시점 기준선:** `main` HEAD = `1d5d758`, 작업트리 클린, 진행 중인 미완 작업 없음.
+
+> ⚠️ 이 표는 커밋 `1d5d758` 시점 기준이다. 작업 재개 시 **`git log --oneline` 으로 실제 진도를 먼저 확인하라.**
+> 40종 개별 현황은 `docs/00_OVERVIEW.md` §6 이 정본이다.
+
+### 잔여 리스크
+
+| ID | 내용 | 해소 방법 |
+|---|---|---|
+| `R-1` | `contlength` 체인 닫힘 1스텝 차이 (396 vs 395) | HALCON 실측 1회로 확인. `compactness` 도 함께 영향받는다 |
 
 ### 다음에 할 일 (우선순위 순)
 
-1. **결정적 판정 3건 해소** — `docs/03_VERIFICATION.md` §5
-   - `P-1` `contlength` 체인 정의 (단일 픽셀에서 0 인가 4 인가)
-   - `P-2` `convexity` 의 hull 면적 단위 (픽셀 개수인가 폴리곤 면적인가)
-   - `P-3` `contlength` 구멍 제외 (원문 Attention 상 확정적)
-2. 1차 5종 구현 — Core(`Region` 런렝스) → contour → convex hull 순
-3. 기준 도형 S1~S7 단위테스트
-4. 통과 후 `elliptic_axis` → `moments_*` → `eccentricity` 확장
+1. **`elliptic_axis`** — 모든 모멘트 계열의 관문. §5.1 절차대로 정의서 → 손계산 → 구현
+2. `moments_region_2nd` → `moments_*` 계열 확장 (함정 #4 정규화 없음, #5 부호 규약 주의)
+3. `eccentricity` (`Rb=0` 방어 필수)
+4. HALCON 환경 확보 시 V2 실측으로 `R-1` 해소
+
+**최난도로 남겨둔 것:** `rectangularity`(닫힌 수식 없음) · `select_shape`(63 feature 이름 체계의 근간) · `runlength_features`(LFactor 정의 모호)
 
 ---
 
@@ -174,4 +186,5 @@ OpenCV  cv::Point(x, y)          ← 내부 전용, 경계에서 변환
 | `docs/01_ARCHITECTURE.md` | 코드를 짜기 직전 (설계 제약과 패턴) |
 | `docs/02_DEFINITIONS.md` | **구현의 유일한 근거.** 수식을 옮길 때 |
 | `docs/03_VERIFICATION.md` | 테스트를 짤 때, 값이 안 맞을 때 |
+| `docs/04_IMPLEMENTATION_NOTES.md` | Phase 1 구현 결과·판정 근거·문서 보정 이력을 확인할 때 |
 | `docs/reference/halcon13/` | 정의서에 없는 오퍼레이터를 새로 추가할 때 |
