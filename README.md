@@ -89,6 +89,14 @@ flowchart LR
 | `compactness` | 조밀도 `max(1, L²/(4Fπ))` | ✅ | ✅ | ✅ |
 | `convexity` | 볼록도 `F_o / F_c` | ✅ | ✅ | ✅ |
 
+공개 API 는 위 5종에 더해 **HALCON 원명 대응이 없는 추가 함수 3개**가 있습니다 (성능·검사기 편의용).
+
+| 함수 | 용도 |
+|---|---|
+| `ComputeFeatures(const Region&, RegionFeatures&)` | 5종 값 7개를 **한 번에** 계산. 결과는 개별 호출과 완전히 동일하되, 윤곽 추적·convex hull 을 리전당 1회만 수행한다 (개별 5회 호출은 윤곽 추적 4회) |
+| `SelectLargestBlob(const Region&)` | **최대 연결성분(8-연결) 하나만** 남긴 리전을 반환. 동률이면 스캔 순서상 먼저인 것. `FromMask` 는 마스크 전체를 한 리전으로 만들므로(connection 없음), 덩어리가 여럿인 crop 에서 불량 하나만 뽑을 때 쓴다 |
+| `ComputeLargestBlobFeatures(const unsigned char*, w, h, stride, RegionFeatures&)` | **검사기 원샷**: 이진 마스크 한 장 → 최대 blob → 특징값 7종. `FromMask`+`SelectLargestBlob`+`ComputeFeatures` 조합. **이 함수만 `bool` 반환** — 원시 포인터/치수를 직접 받아 입력 오류와 "전경 없음" 을 구분한다 |
+
 전체 40종 현황은 [`docs/00_OVERVIEW.md`](docs/00_OVERVIEW.md) 를 참고하세요.
 
 ---
@@ -154,8 +162,13 @@ HALCON 문서의 수식은 텍스트가 아니라 **MetaPost 인라인 SVG 글�
 
 ## 문서
 
+> ### 📚 [문서 허브 — `docs/README.md`](docs/README.md) 가 모든 문서의 진입점입니다.
+> 읽는 순서 가이드 · 문서 카탈로그 · **오퍼레이터별 정의/검증/원문 역인덱스**가 그곳에 있습니다.
+> 어디부터 봐야 할지 모르겠다면 여기부터 여세요.
+
 | 문서 | 내용 |
 |---|---|
+| [`docs/README.md`](docs/README.md) | **📚 문서 허브 — 여기서 시작.** 읽는 순서 · 카탈로그 · 오퍼레이터 역인덱스 |
 | [`CLAUDE.md`](CLAUDE.md) | **작업 시작 전 필수.** AI 에이전트 / 신규 참여자 지침 |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | 빌드·테스트 방법과 기여 절차 요약 |
 | [`docs/00_OVERVIEW.md`](docs/00_OVERVIEW.md) | 범위 · 원칙 · 함정 14건 · 40종 현황표 |
@@ -163,7 +176,7 @@ HALCON 문서의 수식은 텍스트가 아니라 **MetaPost 인라인 SVG 글�
 | [`docs/02_DEFINITIONS.md`](docs/02_DEFINITIONS.md) | **특징값 정의서 — 구현의 유일한 근거** |
 | [`docs/03_VERIFICATION.md`](docs/03_VERIFICATION.md) | 기준 도형 · 기댓값 손계산 · HDevelop 검증 스크립트 |
 | [`docs/04_IMPLEMENTATION_NOTES.md`](docs/04_IMPLEMENTATION_NOTES.md) | **Phase 1 구현 노트 · 검증 실측 결과 · 문서 보정 이력** |
-| [`docs/reference/halcon13/`](docs/reference/halcon13/) | HALCON 13 원문 수집 아카이브 (G1~G5) |
+| [`docs/reference/halcon13/`](docs/reference/halcon13/README.md) | HALCON 13 원문 수집 아카이브 (G1~G5) · 40종 목록과 단계별 상태 |
 
 ---
 

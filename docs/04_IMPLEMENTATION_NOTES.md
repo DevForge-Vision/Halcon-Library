@@ -1,4 +1,29 @@
+[🏠 홈](../README.md) › [📚 문서](README.md) › **구현 노트**
+
+---
+
 # 04. Phase 1 구현 노트 및 검증 결과
+
+<details>
+<summary><b>목차</b></summary>
+
+- [1. 결과 요약](#1-결과-요약)
+- [2. 구현 구조](#2-구현-구조)
+  - [2.1 왜 OpenCV 를 쓰지 않았나](#21-왜-opencv-를-쓰지-않았나)
+  - [2.2 성능 설계](#22-성능-설계)
+  - [2.3 방어 설계](#23-방어-설계)
+- [3. ⚠ 가장 중요한 교훈 — 곡선 도형의 기댓값을 연속 기하로 잡으면 안 된다](#3--가장-중요한-교훈--곡선-도형의-기댓값을-연속-기하로-잡으면-안-된다)
+  - [원인 — 디지털 원의 체인코드 편향](#원인--디지털-원의-체인코드-편향)
+  - [이 편향의 파급](#이-편향의-파급)
+  - [규칙 (앞으로 모든 오퍼레이터에 적용)](#규칙-앞으로-모든-오퍼레이터에-적용)
+- [4. 문서 보정 4건](#4-문서-보정-4건)
+  - [4-1 의 파생 — 클리핑 검증 도형이 없다](#4-1-의-파생--클리핑-검증-도형이-없다)
+- [5. 추가로 확정한 사항](#5-추가로-확정한-사항)
+- [6. 남은 리스크](#6-남은-리스크)
+- [7. 재현 방법](#7-재현-방법)
+- [8. 다음 단계](#8-다음-단계)
+
+</details>
 
 > 작성 2026-07-20. 대상: 오퍼레이터 5종
 > `area_center` · `contlength` · `circularity` · `compactness` · `convexity`
@@ -65,7 +90,36 @@ Phase 1 다섯 종은 **OpenCV 를 쓰면 오히려 값이 틀린다.**
 - `area_center` 는 **O(런 수)**. 열 좌표 합을 등차수열 합 `(colBegin+colEnd)·개수/2` 로 상수시간 처리.
   픽셀 순회(O(면적)) 대비 두 자릿수 빠르다.
 - `FeatureContext` 가 area/center · contour · convexHull 을 **처음 요청될 때 1회만** 계산하고 캐시한다.
-  `circularity` 와 `compactness` 를 연달아 호출해도 contour 는 한 번만 만든다.
+
+> ⚠ **캐시의 유효 범위 — 오해하기 쉬운 지점**
+>
+> 이 캐시는 **`FeatureContext` 인스턴스 하나 안에서만** 유효하다.
+> 개별 오퍼레이터(`ContLength` / `Circularity` / `Compactness` / `Convexity`)는 **호출할 때마다
+> `FeatureContext` 를 스택에 새로 만들고 버린다.** 그러므로
+> `Circularity` 와 `Compactness` 를 연달아 호출하면 **윤곽 추적이 두 번 일어난다.**
+> (이 문서의 이전 판은 "한 번만 만든다" 라고 서술했다. 사실이 아니었으므로 바로잡는다.)
+>
+> 중복을 없애려면 배치 API 를 쓴다.
+>
+> ```cpp
+> RegionFeatures f;
+> ComputeFeatures(region, f);		// FeatureContext 1개를 5종이 공유한다
+> ```
+>
+> | 호출 방식 | 윤곽 추적 | convex hull |
+> |---|---|---|
+> | 개별 5종을 각각 호출 | **4회** | 1회 |
+> | `ComputeFeatures` 1회 | **1회** | 1회 |
+>
+> 값은 두 경로가 완전히 같다. `Operators.cpp` 의 익명 네임스페이스에 있는 값 계산 헬퍼 5종
+> (`ComputeAreaCenterValue` · `ComputeContLengthValue` · `ComputeCircularityValue` ·
+> `ComputeCompactnessValue` · `ComputeConvexityValue`) 을 **양쪽이 똑같이 호출**하기 때문이다.
+> 계산식을 두 벌로 복제하지 않았으므로 두 경로가 어긋날 여지가 구조적으로 없다.
+
+- **윤곽 계열은 라벨 이미지를 만들지 않는다.** `Contour.cpp` 는 런 조회 인덱스(행 이진탐색 +
+  행 내 런 이진탐색)로 멤버십을 판정한다. 메모리는 **O(런 수)** 이며 바운딩박스 크기와 무관하다.
+  대가로 멤버십 판정이 O(1) 에서 **O(log n)** 이 됐다. 의도한 교환이다
+  (풀프레임을 가로지르는 가는 스크래치에서 dense 라벨 이미지는 1 GB 를 넘었다).
 
 ### 2.3 방어 설계
 
@@ -202,3 +256,7 @@ cl /nologo /EHsc /W4 /D_MBCS /I include /I src\Core /I src\Feature /I test ^
 4. `orientation_region`
 
 확장 시에도 §3 의 규칙(**곡선 도형 기댓값을 연속 기하로 잡지 말 것**)을 반드시 적용한다.
+
+---
+
+← 이전: [정의 검증 계획](03_VERIFICATION.md)  |  [🏠 홈](../README.md)  |  다음: [원문 아카이브 →](reference/halcon13/README.md)

@@ -1,4 +1,24 @@
+[🏠 홈](../../../README.md) › [📚 문서](../../README.md) › [📦 원문 아카이브](README.md) › **G1 기본 / 크기**
+
+---
+
 # Halcon 13 공식 문서 수집 — G1 기본 형상 특징 8종
+
+<details>
+<summary><b>목차</b></summary>
+
+- [공통 사항 (8개 오퍼레이터 모두 해당)](#공통-사항-8개-오퍼레이터-모두-해당)
+- [1. area_center](#1-area_center)
+- [2. area_holes](#2-area_holes)
+- [3. contlength](#3-contlength)
+- [4. diameter_region](#4-diameter_region)
+- [5. connect_and_holes](#5-connect_and_holes)
+- [6. euler_number](#6-euler_number)
+- [7. get_region_thickness](#7-get_region_thickness)
+- [8. region_features](#8-region_features)
+- [부록: 문서에 명시 없음 항목 정리](#부록-문서에-명시-없음-항목-정리)
+
+</details>
 
 수집일: 2026-07-20
 출처: https://www.mvtec.com/doc/halcon/13/en/&lt;operator&gt;.html (MVTec HALCON 13 Reference Manual, Operator Reference)
@@ -481,3 +501,7 @@ region_features(Regions : : Features : Value)
 | get_region_thickness — Complexity | 문서에 명시 없음 |
 | get_region_thickness — 빈 영역 전용 동작 | 문서에 명시 없음 |
 | region_features — feature별 값 범위 | 문서에 명시 없음 (개별 오퍼레이터 참조) |
+
+---
+
+← 이전: [원문 아카이브](README.md)  |  [🏠 홈](../../../README.md)  |  다음: [G2 형상 계수 →](G2_shape_factors.md)

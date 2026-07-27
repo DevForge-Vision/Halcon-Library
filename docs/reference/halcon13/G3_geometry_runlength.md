@@ -1,4 +1,22 @@
+[🏠 홈](../../../README.md) › [📚 문서](../../README.md) › [📦 원문 아카이브](README.md) › **G3 외접 / 내접 / 런렝스**
+
+---
+
 # Halcon 13 공식 문서 원문 수집 — 기하/런렝스 오퍼레이터 7종
+
+<details>
+<summary><b>목차</b></summary>
+
+- [1. inner_circle](#1-inner_circle)
+- [2. inner_rectangle1](#2-inner_rectangle1)
+- [3. smallest_circle](#3-smallest_circle)
+- [4. smallest_rectangle1](#4-smallest_rectangle1)
+- [5. smallest_rectangle2](#5-smallest_rectangle2)
+- [6. runlength_distribution](#6-runlength_distribution)
+- [7. runlength_features](#7-runlength_features)
+- [구현 시 핵심 주의사항 요약](#구현-시-핵심-주의사항-요약)
+
+</details>
 
 출처: https://www.mvtec.com/doc/halcon/13/en/&lt;operator&gt;.html (2026-07-20 수집, HTML 원문 직접 파싱)
 
@@ -301,3 +319,7 @@ Possible Predecessors: threshold, regiongrowing, connection
 4. **inner_rectangle1의 "largest" 기준은 문서 미정의** — 면적 최대라고 단정할 수 없다. 자체 구현 시 면적 최대 알고리즘을 쓰면 Halcon과 결과가 다를 수 있다.
 5. **runlength 히스토그램 index 0은 항상 0**. Background는 구멍만 포함(무한 런 제외). Region 입력은 단일 region만 허용(복수 입력 시 예외).
 6. **KFactor = NumRuns / sqrt(Area)** 이며, LFactor의 분모는 "each line index occurring in the region"(영상 전체 행 수가 아님). MeanLength, Bytes의 수식은 문서에 없다.
+
+---
+
+← 이전: [G2 형상 계수](G2_shape_factors.md)  |  [🏠 홈](../../../README.md)  |  다음: [G4 모멘트 →](G4_moments.md)

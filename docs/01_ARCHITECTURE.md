@@ -1,4 +1,23 @@
+[🏠 홈](../README.md) › [📚 문서](README.md) › **아키텍처**
+
+---
+
 # 01. 아키텍처 설계
+
+<details>
+<summary><b>목차</b></summary>
+
+- [1. 설계가 풀어야 할 제약](#1-설계가-풀어야-할-제약)
+- [2. 계층](#2-계층)
+- [3. 적용 패턴과 그 이유](#3-적용-패턴과-그-이유)
+- [4. 핵심 자료구조 — `Region`](#4-핵심-자료구조--region)
+- [5. 성능 설계 — `FeatureContext`](#5-성능-설계--featurecontext)
+- [6. 공개 API 형태](#6-공개-api-형태)
+- [7. 디렉터리 구조](#7-디렉터리-구조)
+- [8. 빌드](#8-빌드)
+- [9. 설계 이력](#9-설계-이력)
+
+</details>
 
 ## 1. 설계가 풀어야 할 제약
 
@@ -100,12 +119,45 @@ void Circularity  (const Region& region, double& circularity);
 void Compactness  (const Region& region, double& compactness);
 void Convexity    (const Region& region, double& convexity);
 
+// 배치 계산 (HALCON 대응 없음. 중간산물 중복 계산 제거용)
+struct RegionFeatures                // POD. 필드는 끝에만 추가한다 (ABI)
+{
+    long   area;
+    double row;
+    double column;
+    double contLength;
+    double circularity;
+    double compactness;
+    double convexity;
+};
+void ComputeFeatures(const Region& region, RegionFeatures& features);
+
+// 검사기 연동 편의 API (HALCON 원명 대응 없음)
+Region SelectLargestBlob(const Region& region);               // 최대 8-연결 성분 하나만
+bool   ComputeLargestBlobFeatures(const unsigned char* data,  // 마스크 → 최대 blob → 7종
+                                  int width, int height, int stride,
+                                  RegionFeatures& features);   // 이 함수만 bool (입력 오류/전경 없음 구분)
+
 }} // namespace glim::halcon
 ```
 
 규칙:
 
 - **출력은 참조 인자**로 받는다 (HALCON 시그니처와 1:1 대응, 다중 출력 오퍼레이터가 많음).
+- **HALCON 에 없는 함수는 원칙적으로 추가하지 않는다.** 예외가 셋 있다.
+  - `ComputeFeatures` — 개별 오퍼레이터가 호출마다 `FeatureContext` 를 새로 만들어 윤곽 추적이
+    4회 중복되는 **실측 가능한 성능 문제**를 해결한다. 값은 개별 호출과 완전히 동일하다
+    (양쪽이 내부의 같은 계산 헬퍼를 호출한다).
+  - `SelectLargestBlob` / `ComputeLargestBlobFeatures` — 검사기는 이진화 crop 한 장을 던지고
+    "그 안의 불량 하나"의 값을 원한다. 그러나 이 라이브러리에는 HALCON `connection` 이 없어
+    `FromMask` 가 마스크 전체를 한 리전으로 만든다. 그래서 **최대 연결성분 하나만** 고르는
+    단계가 필요하다. 라벨링은 윤곽 추적이 쓰는 `core::LabelConnectedRuns` 를 그대로 재사용해
+    "윤곽이 보는 성분" 과 "최대 blob 으로 뽑히는 성분" 이 어긋날 여지를 만들지 않았다.
+    `ComputeLargestBlobFeatures` 만 `bool` 을 반환한다 — 원시 포인터/치수를 직접 받아
+    **입력 오류와 "전경 없음"** 을 구분해야 하기 때문이다(그 둘이 같아 보이면 검사기가 조용히
+    오판한다). 나머지는 기존 "실패도 0" 규약을 그대로 따른다.
+- **공개 구조체는 POD 로 유지한다.** 툴셋(v140/v143)이 달라도 레이아웃이 흔들리지 않아야 한다.
+  필드 추가는 **끝에만** 가능하고, 그때는 라이브러리와 사용처를 함께 재컴파일해야 한다.
 - 예외를 **공개 경계 밖으로 던지지 않는다.** 내부 `try-catch` 로 잡고 HALCON 의
   빈 리전 규약(`0` 반환)으로 축약한다. MFC 호출부가 예외를 못 받는 경우가 있다.
 - 이름은 프로젝트 코딩 규칙(PascalCase)을 따르되, HALCON 원명 대응을 주석으로 남긴다.
@@ -155,3 +207,12 @@ Halcon-Library/
 |---|---|---|
 | 2026-07-20 | PIMPL + Facade + 런렝스 Region + FeatureContext 캐시 채택 | §1 제약 5건 |
 | 2026-07-20 | 오퍼레이터별 인터페이스 추상화 **배제** | 무상태 순수 함수라 계층이 비용만 된다 |
+| 2026-07-21 | 배치 API `ComputeFeatures` 추가 (기존 5종은 그대로 유지) | `FeatureContext` 캐시가 오퍼레이터 호출 경계를 넘지 못해 윤곽 추적이 4회 중복됐다. 기존 시그니처를 깨지 않기 위해 **변경이 아니라 추가**로 해결 |
+| 2026-07-21 | 윤곽 추적의 dense 라벨 이미지 → 런 이진탐색 인덱스 | 메모리가 바운딩박스 크기에 비례해 풀프레임 리전에서 1.3 GB 로 폭발했다. 판정이 O(1)→O(log n) 이 되는 대가를 지불했다 |
+| 2026-07-21 | `FromMask` 의 `0 < stride < width` 를 빈 리전으로 거부 | 버퍼 밖 읽기를 유발한다. `width` 로 보정해도 읽는 총량이 버퍼를 넘으므로 보정으로는 안전해지지 않는다 |
+| 2026-07-21 | 성분 라벨링을 `core::LabelConnectedRuns` 로 승격(추출) | `SelectLargestBlob` 이 같은 라벨링을 필요로 했다. `TraceOuterContours` 안에 복붙하면 "윤곽 성분" 과 "최대 blob 성분" 이 어긋날 수 있어, **양쪽이 함수 하나만 호출**하게 했다. 기존 윤곽 추적 동작은 불변 |
+| 2026-07-21 | 검사기 원샷 `ComputeLargestBlobFeatures` 추가, 이 함수만 `bool` 반환 | 원시 포인터/치수를 직접 받아 **입력 오류 ≠ 전경 없음** 을 구분해야 한다. 기존 API 는 검증된 `Region` 만 받아 "실패도 0" 으로 충분했다. 기존 시그니처는 전부 불변, **추가**로만 해결 |
+
+---
+
+← 이전: [개요](00_OVERVIEW.md)  |  [🏠 홈](../README.md)  |  다음: [특징값 정의서 →](02_DEFINITIONS.md)

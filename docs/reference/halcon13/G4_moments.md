@@ -1,4 +1,23 @@
+[🏠 홈](../../../README.md) › [📚 문서](../../README.md) › [📦 원문 아카이브](README.md) › **G4 모멘트**
+
+---
+
 # Halcon 13 모멘트 오퍼레이터 7종 정확 정의 (G4)
+
+<details>
+<summary><b>목차</b></summary>
+
+- [공통 사항 (7개 전부 동일)](#공통-사항-7개-전부-동일)
+- [1. moments_region_2nd](#1-moments_region_2nd)
+- [2. moments_region_2nd_invar](#2-moments_region_2nd_invar)
+- [3. moments_region_2nd_rel_invar](#3-moments_region_2nd_rel_invar)
+- [4. moments_region_3rd](#4-moments_region_3rd)
+- [5. moments_region_3rd_invar](#5-moments_region_3rd_invar)
+- [6. moments_region_central](#6-moments_region_central)
+- [7. moments_region_central_invar](#7-moments_region_central_invar)
+- [정규화 방식 비교표 (핵심)](#정규화-방식-비교표-핵심)
+
+</details>
 
 - 출처: HALCON Operator Reference 13.0.4 (https://www.mvtec.com/doc/halcon/13/en/<operator>.html)
 - 수집일: 2026-07-20
@@ -446,3 +465,7 @@ PSI4 = I4 / mu^11
 ### 참고문헌 요약
 - `moments_region_2nd`: R. Haralick, L. Shapiro, "Computer and Robot Vision", Addison-Wesley, 1992, pp. 73-75
 - 나머지 6개: **참고문헌 절 없음**
+
+---
+
+← 이전: [G3 외접 / 내접 / 런렝스](G3_geometry_runlength.md)  |  [🏠 홈](../../../README.md)  |  다음: [G5 선택 / 관계 →](G5_select_relation.md)

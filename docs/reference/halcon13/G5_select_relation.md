@@ -1,4 +1,25 @@
+[🏠 홈](../../../README.md) › [📚 문서](../../README.md) › [📦 원문 아카이브](README.md) › **G5 선택 / 관계**
+
+---
+
 # Halcon 13 오퍼레이터 정의 — G5 (Select / Relation 그룹)
+
+<details>
+<summary><b>목차</b></summary>
+
+- [1. select_shape](#1-select_shape)
+- [2. select_shape_proto](#2-select_shape_proto)
+- [3. select_shape_std](#3-select_shape_std)
+- [4. select_region_spatial](#4-select_region_spatial)
+- [5. spatial_relation](#5-spatial_relation)
+- [6. hamming_distance](#6-hamming_distance)
+- [7. hamming_distance_norm](#7-hamming_distance_norm)
+- [8. find_neighbors](#8-find_neighbors)
+- [9. get_region_index](#9-get_region_index)
+- [10. select_region_point](#10-select_region_point)
+- [부록: 문서에 명시가 없어 확정할 수 없는 항목 정리](#부록-문서에-명시가-없어-확정할-수-없는-항목-정리)
+
+</details>
 
 수집 출처: https://www.mvtec.com/doc/halcon/13/en/&lt;operator&gt;.html (MVTec 공식 Halcon 13 Reference)
 수집일: 2026-07-20
@@ -466,3 +487,7 @@ select_region_point(Regions : DestRegions : Row, Column : )
 | find_neighbors MaxDistance = 0 동작 | **명시 없음** (허용 범위는 1~255) |
 | select_shape_proto 의 Operation 파라미터 | 해당 오퍼레이터에 존재하지 않음 |
 | select_shape_std 의 Exception 상세 | 문서에 별도 명시 없음 |
+
+---
+
+← 이전: [G4 모멘트](G4_moments.md)  |  [🏠 홈](../../../README.md)

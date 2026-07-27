@@ -1,4 +1,24 @@
+[🏠 홈](../../../README.md) › [📚 문서](../../README.md) › [📦 원문 아카이브](README.md) › **G2 형상 계수**
+
+---
+
 # HALCON 13 Region Features — G2 형상(Shape) 오퍼레이터 8종 원문 정의
+
+<details>
+<summary><b>목차</b></summary>
+
+- [공통 사항](#공통-사항)
+- [1. circularity — 원형도](#1-circularity--원형도)
+- [2. compactness — 조밀도](#2-compactness--조밀도)
+- [3. convexity — 볼록도](#3-convexity--볼록도)
+- [4. rectangularity — 사각형도](#4-rectangularity--사각형도)
+- [5. roundness — 진원도 (4개 출력)](#5-roundness--진원도-4개-출력)
+- [6. eccentricity — 이심률 계열 3개 출력](#6-eccentricity--이심률-계열-3개-출력)
+- [7. elliptic_axis — 등가 타원 축](#7-elliptic_axis--등가-타원-축)
+- [8. orientation_region — 리전 방향](#8-orientation_region--리전-방향)
+- [부록 — 한눈에 보는 공식표](#부록--한눈에-보는-공식표)
+
+</details>
 
 출처: https://www.mvtec.com/doc/halcon/13/en/&lt;operator&gt;.html (2026-07-20 수집)
 
@@ -390,3 +410,7 @@ orientation_region(Regions : : : Phi)
 - convexity 분자/분모 = 원본/convex hull (반대로 쓰면 항상 ≥ 1 이 되어 버림).
 - elliptic_axis / eccentricity 는 픽셀을 "픽셀 중심의 무한소 점"으로 취급 → 1픽셀 두께 리전은 Rb = 0 → 0 나눗셈 방어 필요.
 - rectangularity 는 정사각형 등 방향이 결정되지 않는 리전에서 최대 10% 과소평가.
+
+---
+
+← 이전: [G1 기본 / 크기](G1_basic_size.md)  |  [🏠 홈](../../../README.md)  |  다음: [G3 외접 / 내접 / 런렝스 →](G3_geometry_runlength.md)
