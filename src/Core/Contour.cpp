@@ -3,7 +3,10 @@
 //
 // 절차
 //   1) 런 단위 8-연결 성분 라벨링 (union-find, 두 포인터로 O(런 수))
-//   2) 바운딩박스 + 1픽셀 패딩 라벨 이미지 생성
+//   2) 런 조회 인덱스 생성 (행 목록 + 행별 런 구간). 라벨 이미지를 만들지 않는다
+//      → 메모리는 O(런 수). 바운딩박스가 아무리 커도 폭발하지 않는다
+//        (풀프레임을 가로지르는 가는 스크래치에서 라벨 이미지는 1 GB 를 넘었다)
+//      → 멤버십 판정은 O(1) 이 아니라 O(log n) 이 된다. 의도한 교환이다
 //   3) 성분마다 **최상단-최좌측 픽셀**에서 Moore 추적 시작
 //      → 시작점이 성분의 최상단-최좌측이므로 추적되는 것은 항상 **외곽 윤곽**이다.
 //        구멍 윤곽은 시작점이 될 수 없으므로 원리적으로 배제된다.
@@ -13,6 +16,7 @@
 //====================================================================================
 #include "Contour.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 
@@ -58,6 +62,105 @@ void UnionSet(std::vector<int>& parent, int a, int b)
 		parent[rb] = ra;
 }
 
+//------------------------------------------------------------------------------------
+// RunIndex — (row, col) 이 어느 런에 속하는지 이진탐색으로 판정하는 조회 인덱스
+//
+// 왜 라벨 이미지를 쓰지 않는가
+//   라벨 이미지는 바운딩박스 크기다. 픽셀 수가 10개여도 프레임 양 끝에 하나씩 있으면
+//   (53580 x 6144) x 4바이트 = 약 1.3 GB 가 잡힌다. 리전의 실제 크기와 무관하게 폭발한다.
+//
+// 자료구조
+//   m_rowValues : 리전에 실제로 존재하는 row 값만 오름차순으로 (희소하므로 dense 배열 금지)
+//   m_rowBegin  : m_rowValues[i] 행의 런이 runs[ m_rowBegin[i], m_rowBegin[i+1] ) 에 있다
+//   런은 이미 정규형(row 오름차순, 같은 row 안에서 colBegin 오름차순, 겹침/인접 없음)이므로
+//   같은 행의 런은 연속 구간에 모여 있다. 한 번 훑으면 인덱스가 만들어진다. O(런 수).
+//
+// 판정
+//   row 이진탐색 → 행 구간 안에서 colBegin 이진탐색 → colEnd 범위 확인.  O(log n)
+//   범위 밖 좌표는 자연히 "런에 없음 = 배경" 이 된다 (예전의 1픽셀 패딩 역할을 대신한다).
+//------------------------------------------------------------------------------------
+class RunIndex
+{
+public:
+	RunIndex() : m_pRuns(0) {}
+
+	// runs 는 정규형이어야 하고, 이 객체보다 오래 살아 있어야 한다.
+	bool Build(const std::vector<Run>& runs)
+	{
+		m_pRuns = &runs;
+		m_rowValues.clear();
+		m_rowBegin.clear();
+
+		if (runs.empty())
+			return false;
+
+		m_rowValues.reserve(runs.size());
+		m_rowBegin.reserve(runs.size() + 1);
+
+		for (std::size_t i = 0; i < runs.size(); ++i)
+		{
+			if (m_rowValues.empty() || m_rowValues.back() != runs[i].row)
+			{
+				m_rowValues.push_back(runs[i].row);
+				m_rowBegin.push_back(i);
+			}
+		}
+		m_rowBegin.push_back(runs.size());
+		return true;
+	}
+
+	// (row, col) 을 담고 있는 런의 인덱스. 배경이면 -1.
+	int FindRunIndex(int row, int col) const
+	{
+		if (m_pRuns == 0 || m_rowValues.empty())
+			return -1;
+
+		// 1) row 이진탐색
+		const std::vector<int>::const_iterator it =
+			std::lower_bound(m_rowValues.begin(), m_rowValues.end(), row);
+		if (it == m_rowValues.end() || *it != row)
+			return -1;		// 그 행에는 런이 하나도 없다 = 배경
+
+		const std::size_t rowIndex = static_cast<std::size_t>(it - m_rowValues.begin());
+		const std::size_t begin = m_rowBegin[rowIndex];
+		const std::size_t end = m_rowBegin[rowIndex + 1];
+		if (begin >= end)
+			return -1;
+
+		// 2) 행 구간 안에서 colBegin <= col 인 마지막 런을 찾는다.
+		//    (겹치지 않으므로 후보는 최대 하나다)
+		const std::vector<Run>& runs = *m_pRuns;
+		std::size_t low = begin;
+		std::size_t high = end;			// [low, high) 에서 colBegin > col 인 첫 런을 찾는다
+		while (low < high)
+		{
+			const std::size_t mid = low + (high - low) / 2;
+			if (runs[mid].colBegin <= col)
+				low = mid + 1;
+			else
+				high = mid;
+		}
+
+		if (low == begin)
+			return -1;		// colBegin <= col 인 런이 없다
+
+		const std::size_t candidate = low - 1;
+		if (col > runs[candidate].colEnd)
+			return -1;		// 런 사이의 빈 구간
+
+		return static_cast<int>(candidate);
+	}
+
+private:
+	const std::vector<Run>* m_pRuns;
+	std::vector<int> m_rowValues;			// 오름차순 유일 row 목록
+	std::vector<std::size_t> m_rowBegin;	// 크기 = m_rowValues.size() + 1
+
+private:
+	RunIndex(const RunIndex&);				// 복사 금지 (m_pRuns 수명 혼동 방지)
+	RunIndex& operator=(const RunIndex&);
+};
+
 }	// anonymous namespace
 
 //------------------------------------------------------------------------------------
@@ -78,23 +181,27 @@ void ContourSet::Flatten(std::vector<Point>& out) const
 }
 
 //------------------------------------------------------------------------------------
-// 외곽 윤곽 추적
+// 런 단위 8-연결 성분 라벨링 (선언과 계약은 Contour.h 참조)
+//
+// TraceOuterContours() 안에 인라인으로 있던 것을 그대로 함수로 승격시켰다.
+// 알고리즘·라벨 부여 순서는 **한 줄도 바뀌지 않았다.**
 //------------------------------------------------------------------------------------
-bool TraceOuterContours(const RegionData& region, ContourSet& out)
+bool LabelConnectedRuns(const std::vector<Run>& runs,
+						std::vector<int>& labelOfRun,
+						std::vector<int>& firstRunOfLabel,
+						std::vector<long long>& pixelsOfLabel)
 {
-	out.m_contours.clear();
+	labelOfRun.clear();
+	firstRunOfLabel.clear();
+	pixelsOfLabel.clear();
 
 	try
 	{
-		const std::vector<Run>& runs = region.GetRuns();
 		if (runs.empty())
 			return false;
 
 		const int runCount = static_cast<int>(runs.size());
 
-		//----------------------------------------------------------------------------
-		// 1) 런 단위 8-연결 성분 라벨링
-		//----------------------------------------------------------------------------
 		std::vector<int> parent(static_cast<std::size_t>(runCount));
 		for (int i = 0; i < runCount; ++i)
 			parent[static_cast<std::size_t>(i)] = i;
@@ -141,55 +248,65 @@ bool TraceOuterContours(const RegionData& region, ContourSet& out)
 		}
 
 		// 루트 → 순차 성분 ID
-		std::vector<int> labelOfRun(static_cast<std::size_t>(runCount), -1);
-		std::vector<int> firstRunOfLabel;			// 성분별 최초(스캔순) 런 인덱스
-		std::vector<long long> pixelsOfLabel;		// 성분별 픽셀 수 (폭주 방지용)
-		{
-			std::vector<int> labelOfRoot(static_cast<std::size_t>(runCount), -1);
-			for (int k = 0; k < runCount; ++k)
-			{
-				const int root = FindRoot(parent, k);
-				if (labelOfRoot[static_cast<std::size_t>(root)] < 0)
-				{
-					labelOfRoot[static_cast<std::size_t>(root)] = static_cast<int>(firstRunOfLabel.size());
-					firstRunOfLabel.push_back(k);
-					pixelsOfLabel.push_back(0);
-				}
-				const int label = labelOfRoot[static_cast<std::size_t>(root)];
-				labelOfRun[static_cast<std::size_t>(k)] = label;
-				pixelsOfLabel[static_cast<std::size_t>(label)] +=
-					static_cast<long long>(runs[static_cast<std::size_t>(k)].colEnd) - runs[static_cast<std::size_t>(k)].colBegin + 1;
-			}
-		}
+		labelOfRun.assign(static_cast<std::size_t>(runCount), -1);
 
-		//----------------------------------------------------------------------------
-		// 2) 라벨 이미지 (바운딩박스 + 1픽셀 패딩)
-		//----------------------------------------------------------------------------
-		int minRow = 0, maxRow = 0, minCol = 0, maxCol = 0;
-		if (!region.GetBoundingBox(minRow, maxRow, minCol, maxCol))
-			return false;
-
-		const int imgWidth = (maxCol - minCol + 1) + 2;
-		const int imgHeight = (maxRow - minRow + 1) + 2;
-		if (imgWidth <= 0 || imgHeight <= 0)
-			return false;
-
-		std::vector<int> labelImage(static_cast<std::size_t>(imgWidth) * static_cast<std::size_t>(imgHeight), -1);
-
-		// (row, col) → 라벨 이미지 인덱스
-		const int offsetRow = 1 - minRow;
-		const int offsetCol = 1 - minCol;
-
+		std::vector<int> labelOfRoot(static_cast<std::size_t>(runCount), -1);
 		for (int k = 0; k < runCount; ++k)
 		{
-			const Run& r = runs[static_cast<std::size_t>(k)];
-			const int y = r.row + offsetRow;
-			const std::size_t base = static_cast<std::size_t>(y) * static_cast<std::size_t>(imgWidth);
-			const int label = labelOfRun[static_cast<std::size_t>(k)];
-
-			for (int c = r.colBegin; c <= r.colEnd; ++c)
-				labelImage[base + static_cast<std::size_t>(c + offsetCol)] = label;
+			const int root = FindRoot(parent, k);
+			if (labelOfRoot[static_cast<std::size_t>(root)] < 0)
+			{
+				labelOfRoot[static_cast<std::size_t>(root)] = static_cast<int>(firstRunOfLabel.size());
+				firstRunOfLabel.push_back(k);
+				pixelsOfLabel.push_back(0);
+			}
+			const int label = labelOfRoot[static_cast<std::size_t>(root)];
+			labelOfRun[static_cast<std::size_t>(k)] = label;
+			pixelsOfLabel[static_cast<std::size_t>(label)] +=
+				static_cast<long long>(runs[static_cast<std::size_t>(k)].colEnd) - runs[static_cast<std::size_t>(k)].colBegin + 1;
 		}
+
+		return !firstRunOfLabel.empty();
+	}
+	catch (...)
+	{
+		labelOfRun.clear();
+		firstRunOfLabel.clear();
+		pixelsOfLabel.clear();
+		return false;
+	}
+}
+
+//------------------------------------------------------------------------------------
+// 외곽 윤곽 추적
+//------------------------------------------------------------------------------------
+bool TraceOuterContours(const RegionData& region, ContourSet& out)
+{
+	out.m_contours.clear();
+
+	try
+	{
+		const std::vector<Run>& runs = region.GetRuns();
+		if (runs.empty())
+			return false;
+
+		//----------------------------------------------------------------------------
+		// 1) 런 단위 8-연결 성분 라벨링 (SelectLargestBlob 과 **같은 함수**를 쓴다)
+		//----------------------------------------------------------------------------
+		std::vector<int> labelOfRun;
+		std::vector<int> firstRunOfLabel;			// 성분별 최초(스캔순) 런 인덱스
+		std::vector<long long> pixelsOfLabel;		// 성분별 픽셀 수 (폭주 방지용)
+
+		if (!LabelConnectedRuns(runs, labelOfRun, firstRunOfLabel, pixelsOfLabel))
+			return false;
+
+		//----------------------------------------------------------------------------
+		// 2) 런 조회 인덱스 (라벨 이미지 대체)
+		//    메모리는 O(런 수)다. 바운딩박스 크기와 무관하다.
+		//----------------------------------------------------------------------------
+		RunIndex runIndex;
+		if (!runIndex.Build(runs))
+			return false;
 
 		//----------------------------------------------------------------------------
 		// 3) 성분별 Moore 추적
@@ -234,12 +351,9 @@ bool TraceOuterContours(const RegionData& region, ContourSet& out)
 					const int cr = p.row + kDirRow[d];
 					const int cc = p.col + kDirCol[d];
 
-					const int y = cr + offsetRow;
-					const int x = cc + offsetCol;
-					if (y < 0 || y >= imgHeight || x < 0 || x >= imgWidth)
-						continue;	// 방어 (패딩 덕분에 정상적으로는 발생하지 않는다)
-
-					if (labelImage[static_cast<std::size_t>(y) * static_cast<std::size_t>(imgWidth) + static_cast<std::size_t>(x)] == label)
+					// 런 이진탐색으로 멤버십 판정. 리전 밖 좌표는 자연히 배경(-1)이 된다.
+					const int hitRun = runIndex.FindRunIndex(cr, cc);
+					if (hitRun >= 0 && labelOfRun[static_cast<std::size_t>(hitRun)] == label)
 					{
 						next = Point(cr, cc);
 
