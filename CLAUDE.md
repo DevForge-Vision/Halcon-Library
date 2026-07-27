@@ -142,7 +142,7 @@ OpenCV  cv::Point(x, y)          ← 내부 전용, 경계에서 변환
 
 ---
 
-## 6. 현재 상태 (2026-07-21 · Phase 1 완료 후 **작업 보류 중**)
+## 6. 현재 상태 (2026-07-28 · Phase 2 완료)
 
 | 항목 | 상태 |
 |---|---|
@@ -150,13 +150,15 @@ OpenCV  cv::Point(x, y)          ← 내부 전용, 경계에서 변환
 | 아키텍처 설계 | ✅ 완료 — `docs/01_ARCHITECTURE.md` |
 | 정의서 | 🟡 **5종 / 40종** 확정 (`area_center` `contlength` `circularity` `compactness` `convexity`) |
 | 검증 기댓값 | ✅ 5종 손계산 완료 — 결정적 판정 3건(`P-1`~`P-3`) 전부 해소 |
-| 구현 | 🟡 **5종 / 40종 완료** — 소스 9개, 외부 의존성 0 |
-| 단위테스트 | ✅ **PASS 70 / FAIL 0** (기준 도형 S1~S7) |
+| 구현 (Phase 1) | 🟡 **5종 / 40종 완료** — 외부 의존성 0 |
+| 배치·검사기 API (Phase 2) | ✅ `RegionFeatures` / `ComputeFeatures` / `ComputeLargestBlobFeatures` / `SelectLargestBlob` |
+| 단위테스트 | ✅ **PASS 70 / FAIL 0** (기준 도형 S1~S7), ctest 3/3 |
 | HALCON 실물 대조 (V2) | ⬜ **미실시** — HALCON 13 환경 확보 시 수행 |
 
-**보류 시점 기준선:** `main` HEAD = `1d5d758`, 작업트리 클린, 진행 중인 미완 작업 없음.
+**기준선:** `main` HEAD = Phase 2 머지 시점, 작업트리 클린, 진행 중인 미완 작업 없음.
+마지막 검증: MSVC 19.50 (VS 2026 v14.50) x64 Release, `/W4` 경고 0, ctest 3/3.
 
-> ⚠️ 이 표는 커밋 `1d5d758` 시점 기준이다. 작업 재개 시 **`git log --oneline` 으로 실제 진도를 먼저 확인하라.**
+> ⚠️ 이 표는 갱신일 기준이다. 작업 재개 시 **`git log --oneline` 으로 실제 진도를 먼저 확인하라.**
 > 40종 개별 현황은 `docs/00_OVERVIEW.md` §6 이 정본이다.
 
 ### 잔여 리스크
@@ -169,8 +171,10 @@ OpenCV  cv::Point(x, y)          ← 내부 전용, 경계에서 변환
 
 1. **`elliptic_axis`** — 모든 모멘트 계열의 관문. §5.1 절차대로 정의서 → 손계산 → 구현
 2. `moments_region_2nd` → `moments_*` 계열 확장 (함정 #4 정규화 없음, #5 부호 규약 주의)
-3. `eccentricity` (`Rb=0` 방어 필수)
+3. `eccentricity` (`Rb=0` 방어 필수) → `orientation_region`
 4. HALCON 환경 확보 시 V2 실측으로 `R-1` 해소
+5. (선택) 재사용 워크스페이스 API — `ComputeLargestBlobFeatures` 호출당 힙 할당 51회를
+   줄이는 개선안. 설계만 `docs/05_USER_GUIDE.md` §6.5 에 있고 미구현이다
 
 **최난도로 남겨둔 것:** `rectangularity`(닫힌 수식 없음) · `select_shape`(63 feature 이름 체계의 근간) · `runlength_features`(LFactor 정의 모호)
 
