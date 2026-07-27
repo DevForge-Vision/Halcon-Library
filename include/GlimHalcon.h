@@ -106,6 +106,44 @@ struct RegionFeatures
 // 실패·빈 리전이면 전 필드가 0 이다 (개별 오퍼레이터와 같은 규약).
 void ComputeFeatures(const Region& region, RegionFeatures& features);
 
+//------------------------------------------------------------------------------------
+// 검사기 연동 편의 API — HALCON 원명 대응이 없다 (이 라이브러리가 추가한 것)
+//
+// 검사기는 이진화된 crop 한 장을 던지고 "그 안의 불량 하나"의 특징값을 원한다.
+// 그런데 Region::FromMask 는 마스크 전체를 하나의 리전으로 만들어, 덩어리가 여럿이면
+// 값이 섞인다(이 라이브러리에는 HALCON 의 connection 오퍼레이터가 없다). 그 간극을 메운다.
+//------------------------------------------------------------------------------------
+
+// 최대 연결성분(8-연결) 하나만 남긴 리전을 돌려준다.
+//   "최대" 의 기준은 **면적(픽셀 개수)** 이다. 동률이면 스캔 순서(위→아래, 왼→오른쪽)상
+//   먼저 나온 성분을 택한다.
+//   빈 리전이거나 실패하면 빈 리전을 돌려준다.
+//   성분이 이미 하나뿐이면 결과는 입력과 픽셀 단위로 동일하다(특징값이 변하지 않는다).
+Region SelectLargestBlob(const Region& region);
+
+// 이진화 마스크 한 장에서 최대 blob 을 골라 특징값 7개를 전부 계산한다.
+//   data   : 0 이 아닌 값 = 전경 (검사기의 이진화 결과). 행 우선(row-major).
+//   width  : 열 개수(column), height : 행 개수(row)
+//   stride : 한 행의 바이트 수. 0 이하이면 width 로 간주한다.
+//   features (out) : 진입 즉시 전 필드 0 으로 초기화된다.
+//
+// 반환 true  = 전경 blob 을 찾아 최대 성분의 값을 계산했다
+//      false = 입력이 잘못됐거나(널 포인터 / width·height <= 0 / 0 < stride < width)
+//              전경이 하나도 없다. 이때 features 는 전 필드 0.
+//
+// ⚠ 왜 이 함수만 bool 을 반환하는가 (기존 오퍼레이터 5종·ComputeFeatures 는 void 다)
+//   기존 함수들은 Region 을 받는다. Region 은 이미 검증을 통과해 만들어진 값이므로
+//   "실패" 라는 개념이 사실상 빈 리전 하나뿐이고, 그래서 "실패도 0" 규약으로 충분했다.
+//   그러나 이 함수는 **원시 포인터와 치수를 직접 받는다.** 널 포인터·잘못된 stride 처럼
+//   입력 자체가 틀릴 수 있고, 그것은 "면적이 0 인 정상 리전(전경 없음)" 과 의미가 다르다.
+//   검사기가 이 둘을 구분하지 못하면 조용히 틀린 판정을 내리게 되므로, 여기서만 bool 로
+//   성패를 명시한다. 값 규약(전 필드 0) 자체는 기존과 동일하게 유지한다.
+//
+// 내부는 FromMask → SelectLargestBlob → ComputeFeatures 조합이다(계산식 재사용).
+bool ComputeLargestBlobFeatures(const unsigned char* data,
+								int width, int height, int stride,
+								RegionFeatures& features);
+
 }}	// namespace glim::halcon
 
 #endif	// GLIM_HALCON_H

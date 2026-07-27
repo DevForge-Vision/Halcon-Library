@@ -42,6 +42,7 @@ set(GLIM_HALCON_SOURCES
 	src/Feature/FeatureContext.h
 	src/Feature/FeatureContext.cpp
 	src/Facade/Operators.cpp
+	src/Facade/Inspection.cpp
 )
 
 add_library(GlimHalcon STATIC
