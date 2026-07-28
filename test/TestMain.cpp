@@ -1,8 +1,12 @@
 ﻿//====================================================================================
-// test/TestMain.cpp — 기준 도형 S1~S7 기댓값 대조 테스트
+// test/TestMain.cpp — 기준 도형 기댓값 대조 테스트
 //
 // 근거: docs/03_VERIFICATION.md
-//   §1 허용 오차 / §2 기준 도형 / §3 손계산 기댓값 / §5 결정적 판정 3건
+//   §1  허용 오차
+//   §2  기준 도형 S1~S7        / §2B 2차 배치 판별 도형 S1b · S4T · S8
+//   §3  1차 배치 손계산 기댓값 (T-1 ~ T-6)
+//   §3B 2차 배치 손계산 기댓값 (T-7 ~ T-13)
+//   §5  결정적 판정 P-1 ~ P-3  / §5B 판정 P-4 ~ P-9 + 미결 4건
 //
 // 종료 코드
 //   0 : 모든 HARD 검사 통과
@@ -76,6 +80,32 @@ void CheckRelative(const char* item, double got, double expect, double relative)
 	Report(std::fabs(got - expect) <= base * relative, item, got, expect, how);
 }
 
+// 두 후보값 중 하나이면 통과 (대칭 도형의 orientation_region — OR-3)
+//   원문에 동률 규정이 없어 어느 쪽도 오답이 아니다. 구현 내부 순회 순서에 테스트를 묶지 않는다.
+void CheckOneOf(const char* item, double got, double candidateA, double candidateB, double tolerance)
+{
+	const bool ok = (std::fabs(got - candidateA) <= tolerance)
+				 || (std::fabs(got - candidateB) <= tolerance);
+
+	char how[128];
+	std::sprintf(how, "%.9f 또는 %.9f (OR-3 동률)", candidateA, candidateB);
+
+	std::printf("  [%s] %-34s got=%18.9f  %s\n", ok ? "PASS" : "FAIL", item, got, how);
+
+	if (ok)
+	{
+		++g_passCount;
+	}
+	else
+	{
+		++g_failCount;
+
+		char buffer[512];
+		std::sprintf(buffer, "%s : got=%.9f (%s)", item, got, how);
+		g_failMessages.push_back(std::string(buffer));
+	}
+}
+
 // 조건 검사 (판별 시험용)
 void CheckCondition(bool ok, const char* item, double got, const char* how)
 {
@@ -138,6 +168,200 @@ Measured Measure(const char* name, const Region& region)
 	Compactness(region, m.compactness);
 	Convexity(region, m.convexity);
 	return m;
+}
+
+//------------------------------------------------------------------------------------
+// 2차 배치 — 한 도형의 모멘트 계열 15값
+//   개별 오퍼레이터 5종을 각각 호출해 채운다 (배치 API 와의 일치는 T-13 에서 따로 검사).
+//------------------------------------------------------------------------------------
+struct MeasuredMoments
+{
+	const char* name;
+	long area;
+	double centerRow;
+	double centerColumn;
+
+	double m11, m20, m02, ia, ib;
+	double m11Invar, m20Invar, m02Invar;
+	double ra, rb, phi;
+	double anisometry, bulkiness, structureFactor;
+	double orientation;
+};
+
+MeasuredMoments MeasureMoments(const char* name, const Region& region)
+{
+	MeasuredMoments m;
+	m.name = name;
+	m.area = 0;
+	m.centerRow = 0.0;
+	m.centerColumn = 0.0;
+	m.m11 = 0.0; m.m20 = 0.0; m.m02 = 0.0; m.ia = 0.0; m.ib = 0.0;
+	m.m11Invar = 0.0; m.m20Invar = 0.0; m.m02Invar = 0.0;
+	m.ra = 0.0; m.rb = 0.0; m.phi = 0.0;
+	m.anisometry = 0.0; m.bulkiness = 0.0; m.structureFactor = 0.0;
+	m.orientation = 0.0;
+
+	AreaCenter(region, m.area, m.centerRow, m.centerColumn);
+	MomentsRegion2nd(region, m.m11, m.m20, m.m02, m.ia, m.ib);
+	MomentsRegion2ndInvar(region, m.m11Invar, m.m20Invar, m.m02Invar);
+	EllipticAxis(region, m.ra, m.rb, m.phi);
+	Eccentricity(region, m.anisometry, m.bulkiness, m.structureFactor);
+	OrientationRegion(region, m.orientation);
+	return m;
+}
+
+//------------------------------------------------------------------------------------
+// T-12. 정의 연쇄 항등식 — 모든 도형에서 항상 성립해야 한다
+//   (docs/03_VERIFICATION.md §3B T-12)
+//   기댓값 표와 별개로, 한 오퍼레이터만 고치고 나머지를 안 고치는 회귀를 잡는다.
+//------------------------------------------------------------------------------------
+void CheckMomentIdentities(const MeasuredMoments& m)
+{
+	char item[160];
+	const double area = static_cast<double>(m.area);
+
+	// I-3 : 고유값 순서와 반정치성
+	std::sprintf(item, "%s I-3 Ia>=Ib>=0", m.name);
+	CheckCondition(m.ia >= m.ib && m.ib >= 0.0, item, m.ib, "Ia >= Ib >= 0");
+
+	std::sprintf(item, "%s I-3 Ra>=Rb>=0", m.name);
+	CheckCondition(m.ra >= m.rb && m.rb >= 0.0, item, m.rb, "Ra >= Rb >= 0 (Assertion)");
+
+	// I-6 : orientation_region 범위 (Assertion)
+	std::sprintf(item, "%s I-6 -pi<=Ori<pi", m.name);
+	CheckCondition(m.orientation >= -kPi && m.orientation < kPi, item, m.orientation,
+				   "-pi <= Phi < pi (Assertion)");
+
+	// elliptic_axis 의 Phi 범위 (Assertion). EA-2 기본값이면 -pi/2 는 제외된다.
+	std::sprintf(item, "%s -pi/2<Phi<=pi/2", m.name);
+	CheckCondition(m.phi > -kPi * 0.5 && m.phi <= kPi * 0.5, item, m.phi,
+				   "-pi/2 < Phi <= pi/2 (Assertion, EA-2)");
+
+	if (area <= 0.0)
+		return;			// 빈 리전은 여기까지 (아래 항등식은 F > 0 을 전제한다)
+
+	// I-1 : moments_region_2nd_invar · F^2 == moments_region_2nd
+	const double areaSquared = area * area;
+	const double scale20 = (std::fabs(m.m20) > 1.0) ? std::fabs(m.m20) : 1.0;
+	const double scale02 = (std::fabs(m.m02) > 1.0) ? std::fabs(m.m02) : 1.0;
+	const double scale11 = (std::fabs(m.m11) > 1.0) ? std::fabs(m.m11) : 1.0;
+
+	std::sprintf(item, "%s I-1 M20i*F^2==M20", m.name);
+	CheckCondition(std::fabs(m.m20Invar * areaSquared - m.m20) <= scale20 * 1e-12,
+				   item, m.m20Invar * areaSquared, "F^2 정규화 연쇄");
+
+	std::sprintf(item, "%s I-1 M02i*F^2==M02", m.name);
+	CheckCondition(std::fabs(m.m02Invar * areaSquared - m.m02) <= scale02 * 1e-12,
+				   item, m.m02Invar * areaSquared, "F^2 정규화 연쇄");
+
+	std::sprintf(item, "%s I-1 M11i*F^2==M11", m.name);
+	CheckCondition(std::fabs(m.m11Invar * areaSquared - m.m11) <= scale11 * 1e-12,
+				   item, m.m11Invar * areaSquared, "F^2 정규화 연쇄");
+
+	// I-2 : Ra == 2*sqrt(Ia/F)  — elliptic_axis 의 F 정규화(EA-1)를 잡는 유일한 지표
+	const double raFromIa = 2.0 * std::sqrt(m.ia / area);
+	const double rbFromIb = 2.0 * std::sqrt(m.ib / area);
+	const double scaleRa = (m.ra > 1.0) ? m.ra : 1.0;
+	const double scaleRb = (m.rb > 1.0) ? m.rb : 1.0;
+
+	std::sprintf(item, "%s I-2 Ra==2sqrt(Ia/F)", m.name);
+	CheckCondition(std::fabs(m.ra - raFromIa) <= scaleRa * 1e-12, item, raFromIa,
+				   "EA-1 (F 정규화) 연쇄");
+
+	std::sprintf(item, "%s I-2 Rb==2sqrt(Ib/F)", m.name);
+	CheckCondition(std::fabs(m.rb - rbFromIb) <= scaleRb * 1e-12, item, rbFromIb,
+				   "EA-1 (F 정규화) 연쇄");
+
+	// I-4 / I-5 : eccentricity 내부 정합 (Rb > 0 일 때만 유효)
+	if (m.rb > 0.0)
+	{
+		const double anisoExpect = m.ra / m.rb;
+		std::sprintf(item, "%s I-4 Aniso==Ra/Rb", m.name);
+		CheckCondition(std::fabs(m.anisometry - anisoExpect) <= anisoExpect * 1e-12,
+					   item, m.anisometry, "Anisometry = Ra/Rb");
+
+		const double sfExpect = kPi * m.ra * m.ra / area - 1.0;
+		const double scaleSf = (std::fabs(sfExpect) > 1.0) ? std::fabs(sfExpect) : 1.0;
+		std::sprintf(item, "%s I-5 SF==pi*Ra^2/A-1", m.name);
+		CheckCondition(std::fabs(m.structureFactor - sfExpect) <= scaleSf * 1e-12,
+					   item, m.structureFactor, "StructureFactor 항등식");
+	}
+	else
+	{
+		// 함정 #12 : Rb == 0 이면 Anisometry 는 반드시 0 이다 (Assertion 을 어기는 것이 정답)
+		std::sprintf(item, "%s #12 Rb=0 -> Aniso=0", m.name);
+		CheckExact(item, m.anisometry, 0.0);
+	}
+
+	// I-6 : orientation ∈ { Phi, wrap(Phi+pi) }
+	double wrapped = m.phi + kPi;
+	if (wrapped >= kPi)
+		wrapped -= 2.0 * kPi;
+	std::sprintf(item, "%s I-6 Ori in {Phi,Phi+pi}", m.name);
+	CheckCondition(std::fabs(m.orientation - m.phi) <= 1e-9
+				|| std::fabs(m.orientation - wrapped) <= 1e-9,
+				   item, m.orientation, "orientation = Phi 또는 Phi+pi");
+}
+
+//------------------------------------------------------------------------------------
+// T-13. 배치 API 가 개별 오퍼레이터와 **비트 단위로 같은지**
+//   값 계산 헬퍼를 한 벌만 두었으므로 반드시 같아야 한다. 다르면 계산식이 복제된 것이다.
+//------------------------------------------------------------------------------------
+void CheckBatchMatchesIndividual(const char* name, const Region& region, const MeasuredMoments& m)
+{
+	RegionMoments batch;
+	ComputeMoments(region, batch);
+
+	RegionFeatures combinedFeatures;
+	RegionMoments combinedMoments;
+	ComputeFeaturesAndMoments(region, combinedFeatures, combinedMoments);
+
+	RegionFeatures soloFeatures;
+	ComputeFeatures(region, soloFeatures);
+
+	const bool momentsMatch =
+		batch.m11 == m.m11 && batch.m20 == m.m20 && batch.m02 == m.m02 &&
+		batch.ia == m.ia && batch.ib == m.ib &&
+		batch.m11Invar == m.m11Invar && batch.m20Invar == m.m20Invar &&
+		batch.m02Invar == m.m02Invar &&
+		batch.ra == m.ra && batch.rb == m.rb && batch.phi == m.phi &&
+		batch.anisometry == m.anisometry && batch.bulkiness == m.bulkiness &&
+		batch.structureFactor == m.structureFactor &&
+		batch.orientation == m.orientation;
+
+	const bool combinedMatch =
+		combinedMoments.m11 == batch.m11 && combinedMoments.m20 == batch.m20 &&
+		combinedMoments.m02 == batch.m02 && combinedMoments.ia == batch.ia &&
+		combinedMoments.ib == batch.ib &&
+		combinedMoments.m11Invar == batch.m11Invar &&
+		combinedMoments.m20Invar == batch.m20Invar &&
+		combinedMoments.m02Invar == batch.m02Invar &&
+		combinedMoments.ra == batch.ra && combinedMoments.rb == batch.rb &&
+		combinedMoments.phi == batch.phi &&
+		combinedMoments.anisometry == batch.anisometry &&
+		combinedMoments.bulkiness == batch.bulkiness &&
+		combinedMoments.structureFactor == batch.structureFactor &&
+		combinedMoments.orientation == batch.orientation;
+
+	const bool featuresMatch =
+		combinedFeatures.area == soloFeatures.area &&
+		combinedFeatures.row == soloFeatures.row &&
+		combinedFeatures.column == soloFeatures.column &&
+		combinedFeatures.contLength == soloFeatures.contLength &&
+		combinedFeatures.circularity == soloFeatures.circularity &&
+		combinedFeatures.compactness == soloFeatures.compactness &&
+		combinedFeatures.convexity == soloFeatures.convexity;
+
+	char item[160];
+
+	std::sprintf(item, "%s ComputeMoments==개별", name);
+	CheckCondition(momentsMatch, item, batch.m20, "15 값 비트 단위 일치");
+
+	std::sprintf(item, "%s ComputeF&M==ComputeM", name);
+	CheckCondition(combinedMatch, item, combinedMoments.m20, "15 값 비트 단위 일치");
+
+	std::sprintf(item, "%s ComputeF&M==ComputeF", name);
+	CheckCondition(featuresMatch, item, combinedFeatures.circularity, "7 값 비트 단위 일치");
 }
 
 //------------------------------------------------------------------------------------
@@ -299,6 +523,270 @@ int main()
 	std::printf("[T-6] HALCON Assertion ------------------------------------------------------------\n");
 	for (int i = 0; i < 7; ++i)
 		CheckAssertions(all[i]);
+	std::printf("\n");
+
+	//================================================================================
+	// 2차 배치 — 2차 모멘트 계열 5종
+	//   moments_region_2nd / moments_region_2nd_invar / elliptic_axis /
+	//   eccentricity / orientation_region
+	//   (docs/02_DEFINITIONS.md §6~§10, docs/03_VERIFICATION.md §3B)
+	//================================================================================
+	Region s1b = shapes::MakeS1bSquare50();			// 스케일 불변성 판별
+	Region s4t = shapes::MakeS4TVerticalLine();		// EA-2 판별
+	Region s8  = shapes::MakeS8AsymmetricDumbbell();// OR-1 / OR-3 판별
+
+	// 1차 7값도 새 도형 3종에 대해 Assertion 을 확인한다 (회귀 감시 확장)
+	const Measured extra[3] = { Measure("S1b", s1b), Measure("S4T", s4t), Measure("S8", s8) };
+
+	MeasuredMoments q1  = MeasureMoments("S1",  s1);
+	MeasuredMoments q2  = MeasureMoments("S2",  s2);
+	MeasuredMoments q3  = MeasureMoments("S3",  s3);
+	MeasuredMoments q4  = MeasureMoments("S4",  s4);
+	MeasuredMoments q5  = MeasureMoments("S5",  s5);
+	MeasuredMoments q6  = MeasureMoments("S6",  s6);
+	MeasuredMoments q7  = MeasureMoments("S7",  s7);
+	MeasuredMoments q1b = MeasureMoments("S1b", s1b);
+	MeasuredMoments q4t = MeasureMoments("S4T", s4t);
+	MeasuredMoments q8  = MeasureMoments("S8",  s8);
+
+	const MeasuredMoments allMoments[10] = { q1, q2, q3, q4, q5, q6, q7, q1b, q4t, q8 };
+	const Region* allRegions[10] = { &s1, &s2, &s3, &s4, &s5, &s6, &s7, &s1b, &s4t, &s8 };
+
+	std::printf("====================================================================================\n");
+	std::printf(" GlimHalcon 2차 배치 - 2차 모멘트 계열 측정값\n");
+	std::printf("====================================================================================\n");
+	std::printf("%-4s %8s %16s %16s %16s %12s %12s\n",
+				"ID", "Area", "M11", "M20", "M02", "Ia", "Ib");
+	for (int i = 0; i < 10; ++i)
+	{
+		std::printf("%-4s %8ld %16.4f %16.4f %16.4f %12.1f %12.1f\n",
+					allMoments[i].name, allMoments[i].area,
+					allMoments[i].m11, allMoments[i].m20, allMoments[i].m02,
+					allMoments[i].ia, allMoments[i].ib);
+	}
+	std::printf("\n");
+	std::printf("%-4s %14s %14s %14s %10s %10s %10s %10s %10s\n",
+				"ID", "M11invar", "M20invar", "M02invar", "Ra", "Rb", "Phi", "Aniso", "Orient");
+	for (int i = 0; i < 10; ++i)
+	{
+		std::printf("%-4s %14.9f %14.9f %14.9f %10.6f %10.6f %10.6f %10.6f %10.6f\n",
+					allMoments[i].name,
+					allMoments[i].m11Invar, allMoments[i].m20Invar, allMoments[i].m02Invar,
+					allMoments[i].ra, allMoments[i].rb, allMoments[i].phi,
+					allMoments[i].anisometry, allMoments[i].orientation);
+	}
+	std::printf("\n");
+
+	//--------------------------------------------------------------------------------
+	// T-7. moments_region_2nd   (§3B T-7)
+	//   직사각형 H x W :  M20 = W·H(H²−1)/12 ,  M02 = H·W(W²−1)/12 ,  M11 = 0
+	//--------------------------------------------------------------------------------
+	std::printf("[T-7] moments_region_2nd (정규화 없음) --------------------------------------------\n");
+	CheckExact("S1 M11",  q1.m11, 0.0);
+	CheckExact("S1 M20",  q1.m20, 8332500.0);		// 100 · 100·9999/12
+	CheckExact("S1 M02",  q1.m02, 8332500.0);
+	CheckExact("S1 Ia",   q1.ia,  8332500.0);
+	CheckExact("S1 Ib",   q1.ib,  8332500.0);
+
+	CheckExact("S1b M20", q1b.m20, 520625.0);		//  50 ·  50·2499/12
+	CheckExact("S1b M02", q1b.m02, 520625.0);
+	CheckExact("S1b M11", q1b.m11, 0.0);
+
+	// 함정 #7 : 픽셀은 무한소 점이다. 두께 1 을 더하면 M20 = 100/12 ≈ 8.33 이 나온다
+	CheckExact("S4 M20 (함정#7)",  q4.m20, 0.0);
+	CheckExact("S4 M02",           q4.m02, 83325.0);
+	CheckExact("S4 Ia",            q4.ia,  83325.0);
+	CheckExact("S4 Ib (함정#7)",   q4.ib,  0.0);
+
+	CheckExact("S4T M20",          q4t.m20, 83325.0);
+	CheckExact("S4T M02 (함정#7)", q4t.m02, 0.0);
+	CheckExact("S4T Ib (함정#7)",  q4t.ib,  0.0);
+
+	CheckAbs("S5 M11", q5.m11, 18750000.0 / 9.0, 1e-6);
+	CheckAbs("S5 M20", q5.m20, 51556875.0 / 9.0, 1e-6);
+	CheckAbs("S5 M02", q5.m02, 51556875.0 / 9.0, 1e-6);
+	CheckAbs("S5 Ia",  q5.ia,  70306875.0 / 9.0, 1e-6);		// (51556875 + 18750000)/9
+	CheckAbs("S5 Ib",  q5.ib,  32806875.0 / 9.0, 1e-6);		// (51556875 − 18750000)/9
+
+	CheckExact("S6 M20", q6.m20, 0.0);
+	CheckExact("S6 Ia",  q6.ia,  0.0);
+	CheckExact("S7 M20", q7.m20, 0.0);
+	CheckExact("S7 Ia",  q7.ia,  0.0);
+
+	CheckExact("S8 M11", q8.m11, 98000.0);
+	CheckExact("S8 M20", q8.m20, 112125.0);
+	CheckExact("S8 M02", q8.m02, 112125.0);
+	CheckExact("S8 Ia",  q8.ia,  210125.0);
+	CheckExact("S8 Ib",  q8.ib,  14125.0);
+
+	// 8중 대칭 도형은 구조 등식이 **정확히** 성립해야 한다 (행/열 누적 중 한쪽이 틀리면 깨진다)
+	CheckExact("S2 M11 (대칭)",     q2.m11, 0.0);
+	CheckExact("S2 M20-M02 (대칭)", q2.m20 - q2.m02, 0.0);
+	CheckExact("S3 M11 (대칭)",     q3.m11, 0.0);
+	CheckExact("S3 M20-M02 (대칭)", q3.m20 - q3.m02, 0.0);
+	std::printf("\n");
+
+	//--------------------------------------------------------------------------------
+	// T-8. moments_region_2nd_invar   (§3B T-8) ⚠ 정규화 대조군
+	//   n x n 정사각형 : M20_invar = (n²−1)/(12·n²)
+	//--------------------------------------------------------------------------------
+	std::printf("[T-8] moments_region_2nd_invar (F^2 정규화) ---------------------------------------\n");
+	CheckAbs("S1 M20invar",  q1.m20Invar,  9999.0 / 120000.0, 1e-12);	// 0.083325
+	CheckAbs("S1 M02invar",  q1.m02Invar,  9999.0 / 120000.0, 1e-12);
+	CheckExact("S1 M11invar", q1.m11Invar, 0.0);
+
+	CheckAbs("S1b M20invar", q1b.m20Invar, 2499.0 / 30000.0, 1e-12);	// 0.0833
+
+	CheckExact("S4 M20invar",  q4.m20Invar, 0.0);
+	CheckAbs("S4 M02invar",    q4.m02Invar, 8.3325, 1e-12);
+	CheckAbs("S4T M20invar",   q4t.m20Invar, 8.3325, 1e-12);
+	CheckExact("S4T M02invar", q4t.m02Invar, 0.0);
+
+	// MI-1 판정 : 원점이 무게중심이면 0.10184074…, 바운딩박스 중심이면 다른 값이 나온다
+	CheckAbs("S5 M20invar (MI-1)", q5.m20Invar, (51556875.0 / 9.0) / (7500.0 * 7500.0), 1e-12);
+	CheckAbs("S5 M11invar (MI-1)", q5.m11Invar, 1.0 / 27.0, 1e-12);
+
+	CheckAbs("S8 M20invar", q8.m20Invar, 0.4485, 1e-12);
+	CheckAbs("S8 M11invar", q8.m11Invar, 0.392,  1e-12);
+
+	CheckExact("S7 M20invar (0나눗셈)", q7.m20Invar, 0.0);
+
+	// ⭐ 결정적 판정 — 함정 #6 (정규화 유무). S1 ↔ S1b 쌍이 시험이다
+	CheckCondition(std::fabs(q1.m20Invar - q1b.m20Invar) < 1e-4,
+				   "invar 스케일 불변 (S1 vs S1b)", q1.m20Invar - q1b.m20Invar,
+				   "|차| < 1e-4 이어야 한다 (F^2 정규화)");
+	CheckCondition(q1b.m20 > 0.0 && (q1.m20 / q1b.m20) > 15.0,
+				   "2nd 는 불변 아님 (함정#6)", q1.m20 / q1b.m20,
+				   "> 15 이어야 한다 (약 16배 = s^4). 1 이면 정규화가 잘못 들어간 것");
+	std::printf("\n");
+
+	//--------------------------------------------------------------------------------
+	// T-9. elliptic_axis   (§3B T-9)
+	//   n x n 정사각형 : Ra = Rb = sqrt((n²−1)/3)
+	//--------------------------------------------------------------------------------
+	std::printf("[T-9] elliptic_axis ---------------------------------------------------------------\n");
+	CheckAbs("S1 Ra (EA-1)",  q1.ra, std::sqrt(3333.0), 1e-9);	// F 정규화가 아니면 5773 또는 0.577
+	CheckAbs("S1 Rb",         q1.rb, std::sqrt(3333.0), 1e-9);
+	CheckExact("S1 Phi",      q1.phi, 0.0);
+
+	CheckAbs("S1b Ra", q1b.ra, std::sqrt(833.0), 1e-9);
+	CheckAbs("S1b Rb", q1b.rb, std::sqrt(833.0), 1e-9);
+
+	CheckAbs("S4 Ra",             q4.ra, std::sqrt(3333.0), 1e-9);
+	CheckExact("S4 Rb (함정#7)",  q4.rb, 0.0);
+	CheckExact("S4 Phi",          q4.phi, 0.0);
+
+	CheckAbs("S4T Ra",            q4t.ra, std::sqrt(3333.0), 1e-9);
+	CheckExact("S4T Rb (함정#7)", q4t.rb, 0.0);
+	// ⭐ EA-2 판정 : 접으면 +pi/2, 원문 문자 그대로면 −pi/2
+	CheckAbs("S4T Phi (EA-2)",    q4t.phi, kPi * 0.5, 1e-9);
+
+	CheckAbs("S5 Ra", q5.ra, std::sqrt(37497.0 / 9.0), 1e-9);
+	CheckAbs("S5 Rb", q5.rb, std::sqrt(17497.0 / 9.0), 1e-9);
+	// ⭐ 함정 #11 판정 : 통념식이면 +pi/4 가 나온다
+	CheckAbs("S5 Phi (함정#11)", q5.phi, -kPi * 0.25, 1e-9);
+
+	CheckExact("S8 Ra",           q8.ra, 41.0);				// sqrt(6724)/2 — 정확한 정수
+	CheckAbs("S8 Rb",             q8.rb, std::sqrt(113.0), 1e-9);
+	CheckAbs("S8 Phi (함정#11)",  q8.phi, -kPi * 0.25, 1e-9);
+
+	CheckExact("S6 Ra", q6.ra, 0.0);
+	CheckExact("S6 Rb", q6.rb, 0.0);
+	CheckExact("S7 Ra", q7.ra, 0.0);
+
+	// 곡선 도형 : 연속 기하 근사값과 ±2% 로만 비교한다 (04_IMPLEMENTATION_NOTES.md §3 규칙)
+	CheckRelative("S2 Ra", q2.ra, 50.0, 0.02);
+	CheckRelative("S3 Ra", q3.ra, 2.0 * std::sqrt(781.25), 0.02);
+	CheckExact("S2 Ra-Rb (대칭)", q2.ra - q2.rb, 0.0);
+	CheckExact("S3 Ra-Rb (대칭)", q3.ra - q3.rb, 0.0);
+	std::printf("\n");
+
+	//--------------------------------------------------------------------------------
+	// T-10. eccentricity   (§3B T-10)
+	//--------------------------------------------------------------------------------
+	std::printf("[T-10] eccentricity ---------------------------------------------------------------\n");
+	CheckExact("S1 Anisometry", q1.anisometry, 1.0);
+	CheckAbs("S1 Bulkiness",       q1.bulkiness,       kPi * 3333.0 / 10000.0, 1e-9);
+	CheckAbs("S1 StructureFactor", q1.structureFactor, kPi * 3333.0 / 10000.0 - 1.0, 1e-9);
+
+	CheckExact("S1b Anisometry", q1b.anisometry, 1.0);
+	CheckAbs("S1b Bulkiness",    q1b.bulkiness, kPi * 833.0 / 2500.0, 1e-9);
+
+	CheckExact("S2 Anisometry (대칭)", q2.anisometry, 1.0);
+	CheckExact("S3 Anisometry (대칭)", q3.anisometry, 1.0);
+	// Bulkiness 는 Ra 의 제곱을 쓰므로 곡선 도형의 이산화 편차가 배로 전파된다 → ±3%
+	CheckRelative("S2 Bulkiness", q2.bulkiness, 1.0, 0.03);
+	CheckRelative("S3 Bulkiness", q3.bulkiness, 5.0 / 3.0, 0.03);
+	CheckAbs("S2 StructureFactor", q2.structureFactor, 0.0, 0.05);
+	CheckRelative("S3 StructureFactor", q3.structureFactor, 2.0 / 3.0, 0.05);
+
+	// ⭐ 함정 #12 판정 : 1.0 이 나오면 Assertion 을 지키려고 손댄 것이다
+	CheckExact("S4 Anisometry (함정#12)",  q4.anisometry,  0.0);
+	CheckExact("S4T Anisometry (함정#12)", q4t.anisometry, 0.0);
+	CheckExact("S6 Anisometry (함정#12)",  q6.anisometry,  0.0);
+	CheckExact("S4 Bulkiness",             q4.bulkiness,   0.0);
+
+	// ⭐ EC-1 판정 : 수식 그대로면 −1, "함께 0 으로" 해석이면 0
+	CheckExact("S4 StructureFactor (EC-1)", q4.structureFactor,  -1.0);
+	CheckExact("S6 StructureFactor (EC-1)", q6.structureFactor,  -1.0);
+	// 빈 리전은 −1 이 아니라 0 이어야 한다 (축퇴 리전과 구분된다)
+	CheckExact("S7 StructureFactor (빈리전)", q7.structureFactor, 0.0);
+	CheckExact("S7 Anisometry",               q7.anisometry,      0.0);
+
+	CheckAbs("S5 Anisometry",       q5.anisometry, std::sqrt(37497.0 / 17497.0), 1e-9);
+	// Ra·Rb = sqrt(Ra²·Rb²) = sqrt((37497/9)·(17497/9)) — 측정값을 쓰지 않고 손계산으로 만든다
+	CheckAbs("S5 Bulkiness",        q5.bulkiness,
+			 kPi * std::sqrt((37497.0 / 9.0) * (17497.0 / 9.0)) / 7500.0, 1e-9);
+	CheckAbs("S5 StructureFactor",  q5.structureFactor, kPi * (37497.0 / 9.0) / 7500.0 - 1.0, 1e-9);
+
+	CheckAbs("S8 Anisometry",       q8.anisometry, 41.0 / std::sqrt(113.0), 1e-9);
+	CheckAbs("S8 Bulkiness",        q8.bulkiness,  kPi * 41.0 * std::sqrt(113.0) / 500.0, 1e-9);
+	CheckAbs("S8 StructureFactor",  q8.structureFactor, kPi * 1681.0 / 500.0 - 1.0, 1e-9);
+	std::printf("\n");
+
+	//--------------------------------------------------------------------------------
+	// T-11. orientation_region   (§3B T-11)
+	//   ⭐ 정확값 판정은 S8 하나가 담당한다. 나머지는 전부 대칭 도형이라 동률이다 (OR-3)
+	//--------------------------------------------------------------------------------
+	std::printf("[T-11] orientation_region ---------------------------------------------------------\n");
+	// ⭐ OR-1 판정 : 투영 부호가 반대면 −pi/4 가 나온다
+	CheckAbs("S8 Orientation (OR-1)", q8.orientation, 0.75 * kPi, 1e-9);
+
+	CheckExact("S6 Orientation", q6.orientation, 0.0);	// 최원점 = 자기 자신 → proj = 0
+	CheckExact("S7 Orientation", q7.orientation, 0.0);
+
+	// OR-3 : 대칭 도형은 { Phi, wrap(Phi+pi) } 소속만 검사한다
+	CheckOneOf("S1 Orientation (OR-3)",  q1.orientation,  0.0, -kPi, 1e-9);
+	CheckOneOf("S1b Orientation (OR-3)", q1b.orientation, 0.0, -kPi, 1e-9);
+	CheckOneOf("S2 Orientation (OR-3)",  q2.orientation,  0.0, -kPi, 1e-9);
+	CheckOneOf("S3 Orientation (OR-3)",  q3.orientation,  0.0, -kPi, 1e-9);
+	CheckOneOf("S4 Orientation (OR-3)",  q4.orientation,  0.0, -kPi, 1e-9);
+	CheckOneOf("S4T Orientation (OR-3)", q4t.orientation, kPi * 0.5, -kPi * 0.5, 1e-9);
+	CheckOneOf("S5 Orientation (OR-3)",  q5.orientation,  -kPi * 0.25, 0.75 * kPi, 1e-9);
+	std::printf("\n");
+
+	//--------------------------------------------------------------------------------
+	// T-12. 정의 연쇄 항등식 (도형 무관)
+	//--------------------------------------------------------------------------------
+	std::printf("[T-12] 정의 연쇄 항등식 -----------------------------------------------------------\n");
+	for (int i = 0; i < 10; ++i)
+		CheckMomentIdentities(allMoments[i]);
+	std::printf("\n");
+
+	//--------------------------------------------------------------------------------
+	// T-13. 배치 API == 개별 오퍼레이터 (비트 단위)
+	//--------------------------------------------------------------------------------
+	std::printf("[T-13] 배치 API 일치 --------------------------------------------------------------\n");
+	for (int i = 0; i < 10; ++i)
+		CheckBatchMatchesIndividual(allMoments[i].name, *allRegions[i], allMoments[i]);
+	std::printf("\n");
+
+	//--------------------------------------------------------------------------------
+	// T-6b. 판별 도형 3종에 대한 1차 배치 Assertion (회귀 감시 확장)
+	//--------------------------------------------------------------------------------
+	std::printf("[T-6b] 판별 도형 3종의 1차 Assertion ----------------------------------------------\n");
+	for (int i = 0; i < 3; ++i)
+		CheckAssertions(extra[i]);
 	std::printf("\n");
 
 	//--------------------------------------------------------------------------------
