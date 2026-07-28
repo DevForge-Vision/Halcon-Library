@@ -132,6 +132,28 @@ struct RegionFeatures                // POD. 필드는 끝에만 추가한다 (A
 };
 void ComputeFeatures(const Region& region, RegionFeatures& features);
 
+// 2차 배치 — 2차 모멘트 계열 5종 (2026-07-28)
+void MomentsRegion2nd     (const Region&, double& m11, double& m20, double& m02,
+                           double& ia, double& ib);
+void MomentsRegion2ndInvar(const Region&, double& m11, double& m20, double& m02);
+void EllipticAxis         (const Region&, double& ra, double& rb, double& phi);
+void Eccentricity         (const Region&, double& anisometry, double& bulkiness,
+                           double& structureFactor);
+void OrientationRegion    (const Region&, double& phi);
+
+struct RegionMoments                 // POD. RegionFeatures 와 **분리**한다 (ABI, §9 이력 참조)
+{
+    double m11, m20, m02, ia, ib;              // MomentsRegion2nd      (정규화 없음)
+    double m11Invar, m20Invar, m02Invar;       // MomentsRegion2ndInvar (F^2 정규화)
+    double ra, rb, phi;                        // EllipticAxis          (내부 F 정규화)
+    double anisometry, bulkiness, structureFactor;
+    double orientation;
+};
+void ComputeMoments(const Region& region, RegionMoments& moments);
+void ComputeFeaturesAndMoments(const Region& region,          // 컨텍스트 하나로 7값 + 15값
+                               RegionFeatures& features,
+                               RegionMoments& moments);
+
 // 검사기 연동 편의 API (HALCON 원명 대응 없음)
 Region SelectLargestBlob(const Region& region);               // 최대 8-연결 성분 하나만
 bool   ComputeLargestBlobFeatures(const unsigned char* data,  // 마스크 → 최대 blob → 7종
@@ -212,6 +234,10 @@ Halcon-Library/
 | 2026-07-21 | `FromMask` 의 `0 < stride < width` 를 빈 리전으로 거부 | 버퍼 밖 읽기를 유발한다. `width` 로 보정해도 읽는 총량이 버퍼를 넘으므로 보정으로는 안전해지지 않는다 |
 | 2026-07-21 | 성분 라벨링을 `core::LabelConnectedRuns` 로 승격(추출) | `SelectLargestBlob` 이 같은 라벨링을 필요로 했다. `TraceOuterContours` 안에 복붙하면 "윤곽 성분" 과 "최대 blob 성분" 이 어긋날 수 있어, **양쪽이 함수 하나만 호출**하게 했다. 기존 윤곽 추적 동작은 불변 |
 | 2026-07-21 | 검사기 원샷 `ComputeLargestBlobFeatures` 추가, 이 함수만 `bool` 반환 | 원시 포인터/치수를 직접 받아 **입력 오류 ≠ 전경 없음** 을 구분해야 한다. 기존 API 는 검증된 `Region` 만 받아 "실패도 0" 으로 충분했다. 기존 시그니처는 전부 불변, **추가**로만 해결 |
+| 2026-07-28 | 2차 배치 결과를 `RegionFeatures` 에 붙이지 않고 **`RegionMoments` 새 구조체**로 분리 | `RegionFeatures` 는 이미 배포된 공개 경계다. 끝에 15개를 붙이면 `sizeof` 가 커져 **옛 헤더로 컴파일된 호출부가 링크는 되면서 스택을 넘겨 쓴다.** 이 라이브러리는 검사기 여러 대에 **소스로** 배포되므로 재컴파일 누락이 실제로 일어난다. 구조체를 나누면 그 사고가 원천적으로 불가능하다 |
+| 2026-07-28 | 대신 `ComputeFeaturesAndMoments` 추가 | 구조체를 나눈 대가(컨텍스트 2회 생성 → 윤곽 추적 2회)를 없앤다. **나눠도 성능 손해가 없게** 만든 뒤에 나눴다 |
+| 2026-07-28 | 미결 쟁점 스위치를 **내부 헤더의 매크로**로 (`src/Core/Moments.h`) | 런타임 `const bool` 분기는 MSVC `/W4` 에서 `C4127`(조건식이 상수)을 낸다. `#if` 는 경고가 없고, 기본 분기가 항상 컴파일된다. 공개 헤더가 아니므로 사용처를 오염시키지 않는다 |
+| 2026-07-28 | `GetMaxContourDistance` 와 최원 윤곽점을 **한 순회**로 통합 | `circularity` 의 `max` 와 `orientation_region` 의 기준점은 같은 점이어야 한다. 순회를 두 벌 두면 언젠가 어긋난다. 값은 불변(초기값만 `0.0`→`-1.0`, 최댓값은 동일) |
 
 ---
 

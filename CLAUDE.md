@@ -142,37 +142,46 @@ OpenCV  cv::Point(x, y)          ← 내부 전용, 경계에서 변환
 
 ---
 
-## 6. 현재 상태 (2026-07-28 · Phase 2 완료)
+## 6. 현재 상태 (2026-07-28 · 2차 배치 구현 완료 / **미빌드**)
 
 | 항목 | 상태 |
 |---|---|
 | 원문 수집 | ✅ 완료 — 40종 전부, `docs/reference/halcon13/` 2094줄 |
 | 아키텍처 설계 | ✅ 완료 — `docs/01_ARCHITECTURE.md` |
-| 정의서 | 🟡 **5종 / 40종** 확정 (`area_center` `contlength` `circularity` `compactness` `convexity`) |
-| 검증 기댓값 | ✅ 5종 손계산 완료 — 결정적 판정 3건(`P-1`~`P-3`) 전부 해소 |
-| 구현 (Phase 1) | 🟡 **5종 / 40종 완료** — 외부 의존성 0 |
-| 배치·검사기 API (Phase 2) | ✅ `RegionFeatures` / `ComputeFeatures` / `ComputeLargestBlobFeatures` / `SelectLargestBlob` |
-| 단위테스트 | ✅ **PASS 70 / FAIL 0** (기준 도형 S1~S7), ctest 3/3 |
+| 정의서 | 🟡 **10종 / 40종** 확정 (1차 5종 + 2차 모멘트 계열 5종) |
+| 검증 기댓값 | ✅ 10종 손계산 완료 — 판정 `P-1`~`P-9` 해소, 미결 4건 |
+| 구현 (1차 배치) | ✅ `area_center` `contlength` `circularity` `compactness` `convexity` |
+| 배치·검사기 API | ✅ `RegionFeatures` / `ComputeFeatures` / `ComputeLargestBlobFeatures` / `SelectLargestBlob` |
+| 구현 (2차 배치) | ✅ `moments_region_2nd` `moments_region_2nd_invar` `elliptic_axis` `eccentricity` `orientation_region` + `RegionMoments` / `ComputeMoments` / `ComputeFeaturesAndMoments` |
+| 단위테스트 | 🟡 1차 **PASS 70 / FAIL 0** 실측 완료. **2차 분은 미실행**(빌드 금지 지시) |
 | HALCON 실물 대조 (V2) | ⬜ **미실시** — HALCON 13 환경 확보 시 수행 |
 
-**기준선:** `main` HEAD = Phase 2 머지 시점, 작업트리 클린, 진행 중인 미완 작업 없음.
-마지막 검증: MSVC 19.50 (VS 2026 v14.50) x64 Release, `/W4` 경고 0, ctest 3/3.
+**기준선:** 1차 배치까지 MSVC 19.50 (VS 2026 v14.50) x64 Release, `/W4` 경고 0, ctest 3/3 실측.
+**2차 배치는 작업트리에만 있고 빌드·실행 검증을 하지 않았다.** 소유자가 직접 빌드한다.
 
 > ⚠️ 이 표는 갱신일 기준이다. 작업 재개 시 **`git log --oneline` 으로 실제 진도를 먼저 확인하라.**
-> 40종 개별 현황은 `docs/00_OVERVIEW.md` §6 이 정본이다.
+> 40종 개별 현황은 `docs/00_OVERVIEW.md` §7 이 정본이다.
 
-### 잔여 리스크
+### 잔여 리스크 / 미결 쟁점
 
 | ID | 내용 | 해소 방법 |
 |---|---|---|
-| `R-1` | `contlength` 체인 닫힘 1스텝 차이 (396 vs 395) | HALCON 실측 1회로 확인. `compactness` 도 함께 영향받는다 |
+| `R-1` | `contlength` 체인 닫힘 1스텝 차이 (396 vs 395) | HALCON 실측 1회. `compactness` 도 함께 영향받는다 |
+| `MI-1` | `moments_region_2nd_invar` 의 원점이 무게중심인가 | **S5** 실측. 스위치 `GLIM_HALCON_INVAR_ORIGIN_BBOX` |
+| `EA-2` | `elliptic_axis` 의 `Phi = −π/2` 를 `+π/2` 로 접는가 | **S4T** 실측. 스위치 `GLIM_HALCON_PHI_FOLD_HALF_PI` |
+| `EC-1` | `Rb=0` 일 때 `StructureFactor` 가 `−1` 인가 `0` 인가 | **S4/S6** 실측. 스위치 `GLIM_HALCON_STRUCTURE_FACTOR_ZERO_ON_RB0` |
+| `OR-2` | `orientation_region` 의 `+π` 후 범위 접기 | 스위치 `GLIM_HALCON_ORIENTATION_WRAP` |
+| `OR-3` | 대칭 도형의 최원점 동률 | **판정 불가**(원문 미명시). 대칭 도형은 집합 소속만 검사 |
+
+스위치는 전부 `src/Core/Moments.h` 상단에 있다. **내부 헤더라 사용처를 오염시키지 않는다.**
 
 ### 다음에 할 일 (우선순위 순)
 
-1. **`elliptic_axis`** — 모든 모멘트 계열의 관문. §5.1 절차대로 정의서 → 손계산 → 구현
-2. `moments_region_2nd` → `moments_*` 계열 확장 (함정 #4 정규화 없음, #5 부호 규약 주의)
-3. `eccentricity` (`Rb=0` 방어 필수) → `orientation_region`
-4. HALCON 환경 확보 시 V2 실측으로 `R-1` 해소
+1. **2차 배치 빌드·테스트 실행**(소유자). 기존 `PASS 70 / FAIL 0` 이 떨어지지 않는지 먼저 확인
+2. `moments_region_2nd_rel_invar` → `moments_region_3rd` 계열
+   (함정 #5 **부호 규약이 3차 홀수항에서부터 실제로 값을 바꾼다.** 2차는 영향 없음 — `02_DEFINITIONS.md` §6.3)
+3. HALCON 환경 확보 시 V2 실측으로 `R-1` · `MI-1` · `EA-2` · `EC-1` 해소
+4. `roundness` — `elliptic_axis` 와 같은 윤곽/중심 캐시를 그대로 쓴다
 5. (선택) 재사용 워크스페이스 API — `ComputeLargestBlobFeatures` 호출당 힙 할당 51회를
    줄이는 개선안. 설계만 `docs/05_USER_GUIDE.md` §6.5 에 있고 미구현이다
 

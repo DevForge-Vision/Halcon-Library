@@ -97,6 +97,27 @@ flowchart LR
 | `SelectLargestBlob(const Region&)` | **최대 연결성분(8-연결) 하나만** 남긴 리전을 반환. 동률이면 스캔 순서상 먼저인 것. `FromMask` 는 마스크 전체를 한 리전으로 만들므로(connection 없음), 덩어리가 여럿인 crop 에서 불량 하나만 뽑을 때 쓴다 |
 | `ComputeLargestBlobFeatures(const unsigned char*, w, h, stride, RegionFeatures&)` | **검사기 원샷**: 이진 마스크 한 장 → 최대 blob → 특징값 7종. `FromMask`+`SelectLargestBlob`+`ComputeFeatures` 조합. **이 함수만 `bool` 반환** — 원시 포인터/치수를 직접 받아 입력 오류와 "전경 없음" 을 구분한다 |
 
+### 2차 구현 대상 5종 — 2차 모멘트 계열 (2026-07-28)
+
+다섯 종이 **2차 중심 모멘트 코어 하나**를 공유하고, 새로 필요한 인프라가 없는 조합으로 골랐습니다.
+정규화 인자가 **없음 / `F²` / `F`** 세 가지라서, 서로가 서로의 대조군이 되도록 한 배치로 묶었습니다.
+
+| 오퍼레이터 | 값 | 정규화 | 정의 | 검증 | 구현 |
+|---|---|---|:--:|:--:|:--:|
+| `moments_region_2nd` | `M11, M20, M02, Ia, Ib` | **없음** | ✅ | ✅ | ✅ |
+| `moments_region_2nd_invar` | `M11, M20, M02` | **`F²`** | ✅ | ✅ | ✅ |
+| `elliptic_axis` | `Ra, Rb, Phi` | 내부 **`F`** | ✅ | ✅ | ✅ |
+| `eccentricity` | `Anisometry, Bulkiness, StructureFactor` | — | ✅ | ✅ | ✅ |
+| `orientation_region` | `Phi` (`-π ≤ φ < π`) | — | ✅ | ✅ | ✅ |
+
+추가 배치 API 2개: `ComputeMoments(const Region&, RegionMoments&)` 와
+`ComputeFeaturesAndMoments(const Region&, RegionFeatures&, RegionMoments&)`.
+**`RegionFeatures` 의 레이아웃은 바뀌지 않았습니다** — 기존 사용처는 재컴파일 없이 그대로 동작합니다.
+
+> ⚠ `eccentricity` 의 `Anisometry` 는 1픽셀 두께 리전에서 **`0`** 입니다(HALCON 실제 동작 재현).
+> 가장 길쭉한 불량이 0 을 내므로 `anisometry > N` 조건만 쓰면 스크래치를 놓칩니다.
+> [`docs/05_USER_GUIDE.md` §4.8](docs/05_USER_GUIDE.md) 을 반드시 읽으세요.
+
 전체 40종 현황은 [`docs/00_OVERVIEW.md`](docs/00_OVERVIEW.md) 를 참고하세요.
 
 ---
@@ -127,7 +148,7 @@ HALCON 문서의 수식은 텍스트가 아니라 **MetaPost 인라인 SVG 글�
 
 </details>
 
-전체 14건은 [`docs/00_OVERVIEW.md`](docs/00_OVERVIEW.md) §5 에 있습니다.
+전체 14건은 [`docs/00_OVERVIEW.md`](docs/00_OVERVIEW.md) §6 에 있습니다.
 
 ---
 

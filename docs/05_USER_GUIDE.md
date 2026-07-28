@@ -728,7 +728,100 @@ bool ComputeLargestBlobFeatures(const unsigned char* data,
 - **이 함수만 `bool` 을 반환**하는 이유(원시 포인터/치수를 직접 받아 입력 오류와 전경 없음을 구분)는 §3.6 에 있습니다.
 - 호출당 힙 할당 실측과 개선 방향은 §6.5 를 보세요.
 
-### 4.8 한 번에 보기 — 실측 기준값
+### 4.8 2차 모멘트 계열 5종 (2026-07-28 추가)
+
+```cpp
+void MomentsRegion2nd     (const Region&, double& m11, double& m20, double& m02,
+                           double& ia, double& ib);
+void MomentsRegion2ndInvar(const Region&, double& m11, double& m20, double& m02);
+void EllipticAxis         (const Region&, double& ra, double& rb, double& phi);
+void Eccentricity         (const Region&, double& anisometry, double& bulkiness,
+                           double& structureFactor);
+void OrientationRegion    (const Region&, double& phi);
+```
+
+검사기에서 실제로 쓰는 것은 대개 아래 4개입니다.
+
+| 값 | 뜻 | 검사기에서 쓰는 법 |
+|---|---|---|
+| `ra` / `rb` | 같은 방향·같은 종횡비를 갖는 **등가 타원의 주/부 반지름** | 불량의 "길이 × 두께" 근사 |
+| `anisometry` | `ra / rb`. 원이면 1.0, 길쭉할수록 큼 | **스크래치 판별.** 상한이 없다 |
+| `phi` | 주축과 x축의 각 [라디안], `-π/2 < φ ≤ π/2` | 불량의 기울기 |
+| `orientation` | 방향까지 확정한 각, `-π ≤ φ < π` | 화살표를 그릴 때 |
+
+```cpp
+double ra = 0.0, rb = 0.0, phi = 0.0;
+EllipticAxis(region, ra, rb, phi);
+
+double aniso = 0.0, bulk = 0.0, sf = 0.0;
+Eccentricity(region, aniso, bulk, sf);
+
+if (aniso > 5.0 && f.area > 100)
+    nDefectType = DEFECT_SCRATCH;       // 5배 이상 길쭉하다
+```
+
+#### ⚠ 반드시 알아야 할 함정 4가지
+
+**1. `MomentsRegion2nd` 는 면적으로 나누지 않습니다 (정규화 없음).**
+값이 도형 크기의 **4제곱**으로 커집니다. 100×100 정사각형에서 `M20 = 8,332,500` 입니다.
+크기에 무관한 값이 필요하면 `MomentsRegion2ndInvar`(= 이 값 ÷ `Area²`)를 쓰세요.
+
+| 도형 | `MomentsRegion2nd` 의 `M20` | `MomentsRegion2ndInvar` 의 `M20` |
+|---|---|---|
+| 정사각형 100×100 | 8 332 500 | 0.083325 |
+| 정사각형 50×50 | 520 625 | 0.0833 |
+
+**2. 픽셀은 "면적 1의 사각형" 이 아니라 "무한소 점" 입니다.**
+그래서 **1픽셀 두께 리전과 단일 픽셀은 `rb = 0`** 이 됩니다.
+`0` 으로 나눌 수 있으니 사용처에서 방어하세요. 라이브러리는 내부에서 방어합니다.
+
+**3. 🔴 `anisometry` 는 `rb = 0` 일 때 `1.0` 이 아니라 `0` 입니다.**
+직관과 반대이고 HALCON 문서의 Assertion(`>= 1.0`)과도 어긋나지만, **HALCON 의 실제 동작**입니다
+(원문 Attention 이 명시). 이 라이브러리는 그것을 그대로 재현합니다.
+
+> **그래서 `anisometry > 5.0` 같은 조건만 쓰면 1픽셀 두께 스크래치가 통째로 빠집니다.**
+> 가장 길쭉한 불량이 `0` 을 내기 때문입니다. `rb == 0` 을 **별도로** 처리하세요.
+>
+> ```cpp
+> const bool isLine = (rb <= 0.0) && (ra > 0.0);   // 1픽셀 두께 = 극단적으로 길쭉함
+> if (isLine || aniso > 5.0)
+>     nDefectType = DEFECT_SCRATCH;
+> ```
+
+**4. `structureFactor` 는 축퇴 리전에서 `-1.0`, 빈 리전에서 `0.0` 입니다.**
+
+| 도형 | `anisometry` | `bulkiness` | `structureFactor` |
+|---|---|---|---|
+| 빈 리전 | 0 | 0 | **0** |
+| 단일 픽셀 / 1픽셀 두께 직선 | 0 | 0 | **-1.0** |
+| 정사각형 100×100 | 1.0 | 1.0471 | 0.0471 |
+
+`0` 과 `-1.0` 이 다른 뜻입니다. `structureFactor == 0` 으로 빈 리전을 판정하지 마세요.
+
+> 이 `-1.0` 은 **미결 쟁점 `EC-1`** 입니다(HALCON 실측 대기). 원문 문장이 모호해
+> `0` 일 가능성도 있습니다. 판정이 바뀌면 값이 `0` 으로 바뀔 수 있으니
+> **이 값에 임계값을 직접 걸지 마세요.**
+
+#### 배치 API
+
+```cpp
+RegionMoments m;
+ComputeMoments(region, m);                          // 2차 5종을 한 번에
+
+RegionFeatures f;
+ComputeFeaturesAndMoments(region, f, m);            // 1차 7값 + 2차 15값을 한 번에 (가장 쌈)
+```
+
+- `ComputeFeatures` + `ComputeMoments` 를 따로 부르면 윤곽 추적이 **2회** 일어납니다.
+  `ComputeFeaturesAndMoments` 는 **1회**입니다. 값은 어느 경로로 부르든 완전히 동일합니다.
+- `RegionMoments` 는 `RegionFeatures` 와 **별개 구조체**입니다.
+  기존 `RegionFeatures` 의 레이아웃은 **바뀌지 않았습니다** — 이미 쓰고 있는 코드는
+  재컴파일 없이 그대로 동작합니다.
+
+정의: [`02_DEFINITIONS.md` §6~§10](02_DEFINITIONS.md) ·
+기댓값: [`03_VERIFICATION.md` §3B](03_VERIFICATION.md)
+
+### 4.9 한 번에 보기 — 실측 기준값
 
 [`examples/02_from_binary_mask.cpp`](../examples/02_from_binary_mask.cpp) 실행 결과 (MSVC 14.44 / x64 / Release):
 

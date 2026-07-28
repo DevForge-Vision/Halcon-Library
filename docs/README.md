@@ -30,7 +30,7 @@
 |---|---|
 | **특정 오퍼레이터의 값이 궁금하다** | 아래 [§3 오퍼레이터 역인덱스](#3-오퍼레이터--문서-위치-역인덱스) 에서 해당 행의 링크 3개를 순서대로 |
 | **값이 HALCON 과 다르다** | [`03_VERIFICATION.md`](03_VERIFICATION.md) 기댓값 대조 → [`04_IMPLEMENTATION_NOTES.md` §3](04_IMPLEMENTATION_NOTES.md#3--가장-중요한-교훈--곡선-도형의-기댓값을-연속-기하로-잡으면-안-된다) (곡선 도형 편향) → [`02_DEFINITIONS.md`](02_DEFINITIONS.md) 정의 재확인 |
-| **새 오퍼레이터를 추가한다** | [`reference/halcon13/README.md`](reference/halcon13/README.md) 에서 원문 위치 확인 → [`02_DEFINITIONS.md`](02_DEFINITIONS.md) 절 추가 → [`03_VERIFICATION.md`](03_VERIFICATION.md) 기댓값 손계산 → 구현 → [`00_OVERVIEW.md` §6](00_OVERVIEW.md#6-40종-구현-현황) 현황표 갱신 |
+| **새 오퍼레이터를 추가한다** | [`reference/halcon13/README.md`](reference/halcon13/README.md) 에서 원문 위치 확인 → [`02_DEFINITIONS.md`](02_DEFINITIONS.md) 절 추가 → [`03_VERIFICATION.md`](03_VERIFICATION.md) 기댓값 손계산 → 구현 → [`00_OVERVIEW.md` §7](00_OVERVIEW.md#7-40종-구현-현황) 현황표 갱신 |
 | **코드 구조를 파악한다** | [`01_ARCHITECTURE.md` §2](01_ARCHITECTURE.md#2-계층) 계층도 → [`04_IMPLEMENTATION_NOTES.md` §2](04_IMPLEMENTATION_NOTES.md#2-구현-구조) 실제 파일 구성 |
 | **왜 OpenCV 를 안 쓰는지 알고 싶다** | [`02_DEFINITIONS.md` §7](02_DEFINITIONS.md#7-구현-의존성-phase-1) → [`04_IMPLEMENTATION_NOTES.md` §2.1](04_IMPLEMENTATION_NOTES.md#21-왜-opencv-를-쓰지-않았나) |
 | **테스트를 짠다 / 빌드한다** | [`03_VERIFICATION.md` §2~§3](03_VERIFICATION.md#2-기준-도형-정의) → [`04_IMPLEMENTATION_NOTES.md` §7](04_IMPLEMENTATION_NOTES.md#7-재현-방법) → [`CONTRIBUTING.md`](../CONTRIBUTING.md) |
