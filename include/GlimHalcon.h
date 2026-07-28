@@ -74,7 +74,66 @@ void Compactness(const Region& region, double& compactness);
 void Convexity  (const Region& region, double& convexity);
 
 //------------------------------------------------------------------------------------
-// 배치 계산 결과 — 위 오퍼레이터 5종이 내는 값 7개를 담는다.
+// 2차 모멘트 계열 5종 (HALCON 원명 대응)
+//
+// 다섯 종이 **하나의 2차 중심 모멘트 코어**를 공유한다. 그러나 정규화 인자가 서로 다르다.
+//   MomentsRegion2nd       : 정규화 **없음** (순수 합)
+//   MomentsRegion2ndInvar  : **F^2** 로 나눔
+//   EllipticAxis 내부      : **F** 로 나눔
+// 이 셋을 섞으면 다섯 종이 통째로 틀린다 (docs/02_DEFINITIONS.md §6~§10).
+//
+// ⚠ 픽셀은 면적 1의 사각형이 아니라 **픽셀 중심의 무한소 점**으로 취급된다.
+//    그래서 1픽셀 두께 리전(가로선/세로선)과 단일 픽셀은 Rb = 0 이 되고,
+//    Anisometry 가 문서상 Assertion(>= 1.0)을 어기고 **0** 을 반환한다.
+//    이것은 HALCON 원문이 명시한 동작이며 **일부러 그대로 재현한 것**이다.
+//------------------------------------------------------------------------------------
+
+// HALCON: moments_region_2nd(Regions : : : M11, M20, M02, Ia, Ib)
+//   M11 = SUM (r0-r)(c0-c),  M20 = SUM (r0-r)^2,  M02 = SUM (c0-c)^2   (r0,c0 = 무게중심)
+//   Ia, Ib = 공분산 행렬 [[M20,M11],[M11,M02]] 의 고유값 (Ia >= Ib >= 0)
+//   ⚠ **면적으로 나누지 않는다.** 값이 도형 크기의 4제곱으로 커진다
+//   ⚠ 원문 파라미터 설명은 Ia/Ib 를 "length of the axis" 라 부르지만 차원은 길이²다.
+//      실제 "반지름" 은 EllipticAxis 의 Ra/Rb 이며 Ra = 2*sqrt(Ia/Area) 관계다
+void MomentsRegion2nd(const Region& region,
+					  double& m11, double& m20, double& m02, double& ia, double& ib);
+
+// HALCON: moments_region_2nd_invar(Regions : : : M11, M20, M02)
+//   위 값을 **F^2 (면적의 제곱)** 으로 나눈 것. 지수는 고정 2다.
+//   스케일 불변: n x n 정사각형이면 M20 = M02 = (n^2-1)/(12*n^2) → 크기와 무관하게 약 1/12
+//   빈 리전이면 0 나눗셈을 피해 전부 0.
+void MomentsRegion2ndInvar(const Region& region,
+						   double& m11, double& m20, double& m02);
+
+// HALCON: elliptic_axis(Regions : : : Ra, Rb, Phi)
+//   Assertion: Ra >= 0 / 0 <= Rb <= Ra / -pi/2 < Phi <= pi/2
+//   Ra, Rb : 입력 리전과 같은 방향·같은 종횡비를 갖는 타원의 주/부 반지름
+//   Phi    : 주축과 x축(= column 축) 사이의 각 [라디안]
+//            ⚠ 부호가 통념과 반대다: Phi = -0.5*atan2(2*M11, M02 - M20)
+//            주축 단위벡터는 (col, row) 기준 (cos Phi, -sin Phi) 다
+//            (row 축이 아래로 향하므로 화면상 반시계 방향이 양(+)이 된다)
+//   빈 리전·단일 픽셀 → Ra = Rb = 0. 점들이 한 직선 위에 있으면 → Rb = 0.
+void EllipticAxis(const Region& region, double& ra, double& rb, double& phi);
+
+// HALCON: eccentricity(Regions : : : Anisometry, Bulkiness, StructureFactor)
+//   Anisometry      = Ra / Rb          (원이면 1.0.  ⚠ Rb == 0 이면 **0**)
+//   Bulkiness       = pi * Ra * Rb / Area
+//   StructureFactor = Anisometry * Bulkiness - 1
+//   ⚠ Rb == 0 인 리전(단일 픽셀 / 1픽셀 두께 직선)에서는
+//        Anisometry = 0, Bulkiness = 0, StructureFactor = **-1.0** 이 된다.
+//      빈 리전은 셋 다 0.0 이다. **-1.0 과 0.0 을 구분해야 한다** (전자는 축퇴, 후자는 빈 리전).
+void Eccentricity(const Region& region,
+				  double& anisometry, double& bulkiness, double& structureFactor);
+
+// HALCON: orientation_region(Regions : : : Phi)      Assertion: -pi <= Phi < pi
+//   EllipticAxis 의 Phi 에서 출발해, 무게중심에서 가장 먼 **외곽 윤곽 픽셀**이
+//   회전 좌표계의 음(-) 방향에 있으면 pi 를 더한다. 즉 축(180도 모호)이 아니라
+//   **방향**을 돌려준다.
+//   ⚠ 대칭 도형(정사각형·원·직선 등)은 최원점이 동률이라 Phi 또는 Phi±pi 중
+//      어느 쪽이 나올지 원리적으로 정해지지 않는다. 두 값 모두 옳다.
+void OrientationRegion(const Region& region, double& phi);
+
+//------------------------------------------------------------------------------------
+// 배치 계산 결과 — 1차 배치 오퍼레이터 5종이 내는 값 7개를 담는다.
 //
 //   필드의 의미·값 규약은 대응하는 개별 오퍼레이터와 **완전히 같다.**
 //   (row, column) 순서는 HALCON 관례 (Row, Column) = (y, x) 를 따른다.
@@ -105,6 +164,60 @@ struct RegionFeatures
 // 5종 중 2종 이상이 필요하면 이쪽을 쓰는 편이 항상 유리하다.
 // 실패·빈 리전이면 전 필드가 0 이다 (개별 오퍼레이터와 같은 규약).
 void ComputeFeatures(const Region& region, RegionFeatures& features);
+
+//------------------------------------------------------------------------------------
+// 2차 배치 계산 결과 — 2차 모멘트 계열 5종이 내는 값 15개를 담는다.
+//
+// ⚠ 왜 RegionFeatures 에 필드를 덧붙이지 않고 **새 구조체**를 만들었는가
+//   RegionFeatures 는 이미 배포된 공개 경계다. 끝에 필드를 15개 붙이면 sizeof 가
+//   커져서, **옛 헤더로 컴파일된 호출부가 링크는 되면서 스택을 넘겨 쓴다.**
+//   헤더 주석이 "함께 재컴파일하면 된다" 고 허용하고는 있지만,
+//   이 라이브러리는 검사기 여러 대에 소스로 배포되므로 재컴파일 누락이 실제로 일어난다.
+//   구조체를 나누면 그 사고가 **원천적으로 불가능**해진다. 대신 중간산물 공유는
+//   아래 ComputeFeaturesAndMoments 로 보장한다 — 나눠도 성능 손해가 없다.
+//
+// 필드 규약은 RegionFeatures 와 같다. POD 로 유지하고 **필드는 끝에만** 추가한다.
+//------------------------------------------------------------------------------------
+struct RegionMoments
+{
+	// MomentsRegion2nd — 정규화 없음 (순수 합)
+	double m11;					// SUM (r0-r)(c0-c)
+	double m20;					// SUM (r0-r)^2
+	double m02;					// SUM (c0-c)^2
+	double ia;					// 공분산 큰 고유값
+	double ib;					// 공분산 작은 고유값
+
+	// MomentsRegion2ndInvar — 위 세 값을 F^2 으로 나눈 것
+	double m11Invar;
+	double m20Invar;
+	double m02Invar;
+
+	// EllipticAxis
+	double ra;
+	double rb;
+	double phi;					// -pi/2 < phi <= pi/2
+
+	// Eccentricity
+	double anisometry;			// Rb == 0 이면 0
+	double bulkiness;
+	double structureFactor;		// Rb == 0 이고 리전이 비지 않았으면 -1.0
+
+	// OrientationRegion
+	double orientation;			// -pi <= orientation < pi
+};
+
+// 2차 모멘트 계열 5종을 한 번에 계산한다. 개별 호출과 **결과가 완전히 동일**하되,
+// 모멘트 누적·윤곽 추적을 리전당 1회만 한다.
+// 실패·빈 리전이면 전 필드가 0 이다 (개별 오퍼레이터와 같은 규약).
+void ComputeMoments(const Region& region, RegionMoments& moments);
+
+// 1차 7값 + 2차 15값을 **컨텍스트 하나로** 계산한다.
+//   ComputeFeatures 와 ComputeMoments 를 따로 부르면 윤곽 추적이 2회 일어난다.
+//   이쪽은 1회다. 값은 어느 경로로 부르든 완전히 동일하다.
+// 진입 즉시 두 출력 구조체의 전 필드가 0 으로 초기화된다.
+void ComputeFeaturesAndMoments(const Region& region,
+							   RegionFeatures& features,
+							   RegionMoments& moments);
 
 //------------------------------------------------------------------------------------
 // 검사기 연동 편의 API — HALCON 원명 대응이 없다 (이 라이브러리가 추가한 것)
