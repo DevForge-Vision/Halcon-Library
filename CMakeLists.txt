@@ -47,10 +47,35 @@ set(GLIM_HALCON_SOURCES
 	src/Facade/Inspection.cpp
 )
 
-add_library(GlimHalcon STATIC
-	${GLIM_HALCON_PUBLIC_HEADERS}
-	${GLIM_HALCON_SOURCES}
-)
+#-------------------------------------------------------------------------------------
+# static lib (기본) / DLL 선택
+#
+#   기본이 static 인 이유: 사용처가 MFC 검사기다. static 이면 CRT 버전과 /MT·/MD 조합이
+#   어긋날 여지가 없고, 배포할 때 DLL 을 따라다니게 하지 않아도 된다.
+#
+#   DLL 로 빌드하면 GLIM_HALCON_EXPORTS 가 **이 타깃에만(PRIVATE)** 붙어
+#   공개 심볼이 dllexport 된다. 사용처는 아무것도 정의하지 않는다
+#   (이유는 include/GlimHalcon.h 상단 주석 참조).
+#-------------------------------------------------------------------------------------
+option(GLIM_HALCON_BUILD_SHARED "static lib 대신 DLL 로 빌드한다" OFF)
+
+if(GLIM_HALCON_BUILD_SHARED)
+	add_library(GlimHalcon SHARED
+		${GLIM_HALCON_PUBLIC_HEADERS}
+		${GLIM_HALCON_SOURCES}
+	)
+	target_compile_definitions(GlimHalcon PRIVATE GLIM_HALCON_EXPORTS)
+
+	# import lib 와 DLL 의 이름을 같게 유지한다 (GlimHalcon.lib / GlimHalcon.dll).
+	set_target_properties(GlimHalcon PROPERTIES
+		WINDOWS_EXPORT_ALL_SYMBOLS OFF		# dllexport 를 명시한 것만 내보낸다
+	)
+else()
+	add_library(GlimHalcon STATIC
+		${GLIM_HALCON_PUBLIC_HEADERS}
+		${GLIM_HALCON_SOURCES}
+	)
+endif()
 
 target_include_directories(GlimHalcon
 	PUBLIC

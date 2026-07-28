@@ -13,13 +13,36 @@
 #ifndef GLIM_HALCON_H
 #define GLIM_HALCON_H
 
+//------------------------------------------------------------------------------------
+// 링크 방식 — static lib / DLL 양쪽을 같은 헤더로 지원한다.
+//
+// **사용처는 아무것도 정의하지 않는다.** GLIM_HALCON_EXPORTS 는 DLL 을 빌드할 때
+// CMake 가 라이브러리 타깃에만(PRIVATE) 붙인다.
+//
+// 사용처에 dllimport 를 달지 않는 것은 의도적이다.
+//   - 이 헤더에는 인라인 함수도, 내보낼 데이터 심볼도 없다. 함수와 클래스 멤버뿐이라
+//     dllimport 없이 import lib 로 링크해도 정상 동작한다(링커가 thunk 를 만든다).
+//   - 대가는 호출당 간접 점프 한 번뿐이다. 그 대가로 검사기 프로젝트가
+//     "static 이냐 DLL 이냐" 에 따라 전처리기 정의를 바꿀 필요가 없어진다.
+//     빌드 구성이 여럿인 MFC 프로젝트에서 이 정의를 빠뜨리는 사고가 실제로 잦다.
+//
+// ⚠ 그래서 **이 헤더에 인라인 함수를 추가하면 안 된다.**
+//    사용처에서 인라인으로 할당·해제가 일어나는 순간, DLL 과 CRT 힙이 분리돼 있다는
+//    전제가 깨진다. Region 의 생성·복사·소멸은 전부 라이브러리 쪽에 정의돼 있어야 한다.
+//------------------------------------------------------------------------------------
+#if defined(_WIN32) && defined(GLIM_HALCON_EXPORTS)
+#	define GLIM_HALCON_API __declspec(dllexport)
+#else
+#	define GLIM_HALCON_API
+#endif
+
 namespace glim { namespace halcon {
 
 //------------------------------------------------------------------------------------
 // Region — 런렝스(run-length) 기반 불변 리전
 //   내부 표현은 PIMPL 로 완전히 감춘다. 복사는 O(1) (내부 데이터 공유).
 //------------------------------------------------------------------------------------
-class Region
+class GLIM_HALCON_API Region
 {
 public:
 	Region();
@@ -59,19 +82,19 @@ private:
 //------------------------------------------------------------------------------------
 
 // HALCON: area_center(Regions : : : Area, Row, Column)
-void AreaCenter (const Region& region, long& area, double& row, double& column);
+GLIM_HALCON_API void AreaCenter (const Region& region, long& area, double& row, double& column);
 
 // HALCON: contlength(Regions : : : ContLength)        Assertion: ContLength >= 0
-void ContLength (const Region& region, double& contLength);
+GLIM_HALCON_API void ContLength (const Region& region, double& contLength);
 
 // HALCON: circularity(Regions : : : Circularity)      Assertion: 0 <= C <= 1.0
-void Circularity(const Region& region, double& circularity);
+GLIM_HALCON_API void Circularity(const Region& region, double& circularity);
 
 // HALCON: compactness(Regions : : : Compactness)      Assertion: C >= 1.0 || C == 0
-void Compactness(const Region& region, double& compactness);
+GLIM_HALCON_API void Compactness(const Region& region, double& compactness);
 
 // HALCON: convexity(Regions : : : Convexity)          Assertion: C <= 1
-void Convexity  (const Region& region, double& convexity);
+GLIM_HALCON_API void Convexity  (const Region& region, double& convexity);
 
 //------------------------------------------------------------------------------------
 // 2차 모멘트 계열 5종 (HALCON 원명 대응)
@@ -94,14 +117,14 @@ void Convexity  (const Region& region, double& convexity);
 //   ⚠ **면적으로 나누지 않는다.** 값이 도형 크기의 4제곱으로 커진다
 //   ⚠ 원문 파라미터 설명은 Ia/Ib 를 "length of the axis" 라 부르지만 차원은 길이²다.
 //      실제 "반지름" 은 EllipticAxis 의 Ra/Rb 이며 Ra = 2*sqrt(Ia/Area) 관계다
-void MomentsRegion2nd(const Region& region,
+GLIM_HALCON_API void MomentsRegion2nd(const Region& region,
 					  double& m11, double& m20, double& m02, double& ia, double& ib);
 
 // HALCON: moments_region_2nd_invar(Regions : : : M11, M20, M02)
 //   위 값을 **F^2 (면적의 제곱)** 으로 나눈 것. 지수는 고정 2다.
 //   스케일 불변: n x n 정사각형이면 M20 = M02 = (n^2-1)/(12*n^2) → 크기와 무관하게 약 1/12
 //   빈 리전이면 0 나눗셈을 피해 전부 0.
-void MomentsRegion2ndInvar(const Region& region,
+GLIM_HALCON_API void MomentsRegion2ndInvar(const Region& region,
 						   double& m11, double& m20, double& m02);
 
 // HALCON: elliptic_axis(Regions : : : Ra, Rb, Phi)
@@ -112,7 +135,7 @@ void MomentsRegion2ndInvar(const Region& region,
 //            주축 단위벡터는 (col, row) 기준 (cos Phi, -sin Phi) 다
 //            (row 축이 아래로 향하므로 화면상 반시계 방향이 양(+)이 된다)
 //   빈 리전·단일 픽셀 → Ra = Rb = 0. 점들이 한 직선 위에 있으면 → Rb = 0.
-void EllipticAxis(const Region& region, double& ra, double& rb, double& phi);
+GLIM_HALCON_API void EllipticAxis(const Region& region, double& ra, double& rb, double& phi);
 
 // HALCON: eccentricity(Regions : : : Anisometry, Bulkiness, StructureFactor)
 //   Anisometry      = Ra / Rb          (원이면 1.0.  ⚠ Rb == 0 이면 **0**)
@@ -121,7 +144,7 @@ void EllipticAxis(const Region& region, double& ra, double& rb, double& phi);
 //   ⚠ Rb == 0 인 리전(단일 픽셀 / 1픽셀 두께 직선)에서는
 //        Anisometry = 0, Bulkiness = 0, StructureFactor = **-1.0** 이 된다.
 //      빈 리전은 셋 다 0.0 이다. **-1.0 과 0.0 을 구분해야 한다** (전자는 축퇴, 후자는 빈 리전).
-void Eccentricity(const Region& region,
+GLIM_HALCON_API void Eccentricity(const Region& region,
 				  double& anisometry, double& bulkiness, double& structureFactor);
 
 // HALCON: orientation_region(Regions : : : Phi)      Assertion: -pi <= Phi < pi
@@ -130,7 +153,7 @@ void Eccentricity(const Region& region,
 //   **방향**을 돌려준다.
 //   ⚠ 대칭 도형(정사각형·원·직선 등)은 최원점이 동률이라 Phi 또는 Phi±pi 중
 //      어느 쪽이 나올지 원리적으로 정해지지 않는다. 두 값 모두 옳다.
-void OrientationRegion(const Region& region, double& phi);
+GLIM_HALCON_API void OrientationRegion(const Region& region, double& phi);
 
 //------------------------------------------------------------------------------------
 // 배치 계산 결과 — 1차 배치 오퍼레이터 5종이 내는 값 7개를 담는다.
@@ -163,7 +186,7 @@ struct RegionFeatures
 //   ComputeFeatures: 윤곽 추적 1회 + hull 1회
 // 5종 중 2종 이상이 필요하면 이쪽을 쓰는 편이 항상 유리하다.
 // 실패·빈 리전이면 전 필드가 0 이다 (개별 오퍼레이터와 같은 규약).
-void ComputeFeatures(const Region& region, RegionFeatures& features);
+GLIM_HALCON_API void ComputeFeatures(const Region& region, RegionFeatures& features);
 
 //------------------------------------------------------------------------------------
 // 2차 배치 계산 결과 — 2차 모멘트 계열 5종이 내는 값 15개를 담는다.
@@ -209,13 +232,13 @@ struct RegionMoments
 // 2차 모멘트 계열 5종을 한 번에 계산한다. 개별 호출과 **결과가 완전히 동일**하되,
 // 모멘트 누적·윤곽 추적을 리전당 1회만 한다.
 // 실패·빈 리전이면 전 필드가 0 이다 (개별 오퍼레이터와 같은 규약).
-void ComputeMoments(const Region& region, RegionMoments& moments);
+GLIM_HALCON_API void ComputeMoments(const Region& region, RegionMoments& moments);
 
 // 1차 7값 + 2차 15값을 **컨텍스트 하나로** 계산한다.
 //   ComputeFeatures 와 ComputeMoments 를 따로 부르면 윤곽 추적이 2회 일어난다.
 //   이쪽은 1회다. 값은 어느 경로로 부르든 완전히 동일하다.
 // 진입 즉시 두 출력 구조체의 전 필드가 0 으로 초기화된다.
-void ComputeFeaturesAndMoments(const Region& region,
+GLIM_HALCON_API void ComputeFeaturesAndMoments(const Region& region,
 							   RegionFeatures& features,
 							   RegionMoments& moments);
 
@@ -232,7 +255,7 @@ void ComputeFeaturesAndMoments(const Region& region,
 //   먼저 나온 성분을 택한다.
 //   빈 리전이거나 실패하면 빈 리전을 돌려준다.
 //   성분이 이미 하나뿐이면 결과는 입력과 픽셀 단위로 동일하다(특징값이 변하지 않는다).
-Region SelectLargestBlob(const Region& region);
+GLIM_HALCON_API Region SelectLargestBlob(const Region& region);
 
 // 이진화 마스크 한 장에서 최대 blob 을 골라 특징값 7개를 전부 계산한다.
 //   data   : 0 이 아닌 값 = 전경 (검사기의 이진화 결과). 행 우선(row-major).
@@ -253,7 +276,7 @@ Region SelectLargestBlob(const Region& region);
 //   성패를 명시한다. 값 규약(전 필드 0) 자체는 기존과 동일하게 유지한다.
 //
 // 내부는 FromMask → SelectLargestBlob → ComputeFeatures 조합이다(계산식 재사용).
-bool ComputeLargestBlobFeatures(const unsigned char* data,
+GLIM_HALCON_API bool ComputeLargestBlobFeatures(const unsigned char* data,
 								int width, int height, int stride,
 								RegionFeatures& features);
 
