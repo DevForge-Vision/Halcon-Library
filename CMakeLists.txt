@@ -39,6 +39,8 @@ set(GLIM_HALCON_SOURCES
 	src/Core/Contour.cpp
 	src/Core/ConvexHull.h
 	src/Core/ConvexHull.cpp
+	src/Core/Moments.h
+	src/Core/Moments.cpp
 	src/Feature/FeatureContext.h
 	src/Feature/FeatureContext.cpp
 	src/Facade/Operators.cpp
