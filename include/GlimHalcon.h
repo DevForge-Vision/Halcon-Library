@@ -243,6 +243,106 @@ GLIM_HALCON_API void ComputeFeaturesAndMoments(const Region& region,
 							   RegionMoments& moments);
 
 //------------------------------------------------------------------------------------
+// 구멍 검출 계열 4종 (HALCON 원명 대응)
+//
+// 앞의 셋(AreaHoles / ConnectAndHoles / EulerNumber)은 **하나의 구멍 검출 코어**에서 나온다.
+// DiameterRegion 은 Convexity 가 이미 쓰고 있는 convex hull 을 그대로 재사용한다.
+//
+// ⚠ 정수 출력은 전부 long 이다. AreaCenter 의 Area 와 같은 규약이며,
+//    공개 경계에 정수 타입을 하나만 두어 x86/x64 · v140/v143 조합에서 폭이 흔들리지 않게 한다.
+//
+// ⚠ 연결성 — 값의 근간이므로 반드시 알고 있어야 한다
+//    전경은 **8-연결**, 배경은 **4-연결**이다. 디지털 위상에서 둘은 서로 반대여야 하며,
+//    같게 잡으면 "대각으로만 닫힌 고리 안이 바깥과 통하는" 모순이 생긴다.
+//    원문이 이 점을 명시하지 않아 미결 쟁점(HC-1)으로 등록돼 있다
+//    (docs/02_DEFINITIONS.md §11.5). 내부 스위치로 뒤집을 수 있으나 기본은 위와 같다.
+//------------------------------------------------------------------------------------
+
+// HALCON: area_holes(Regions : : : Area)
+//   Area = 리전이 둘러싼 **배경**의 픽셀 개수 총합. 구멍이 없으면 0.
+//   ⚠ 구멍 안에 들어 있는 전경 덩어리(섬)는 전경이므로 세지 않는다.
+//   ⚠ "오목하다"와 "구멍이 있다"는 다른 개념이다. L자 도형은 Convexity < 1 이지만 Area = 0 이다.
+//   빈 리전이면 0.
+GLIM_HALCON_API void AreaHoles(const Region& region, long& area);
+
+// HALCON: connect_and_holes(Regions : : : NumConnected, NumHoles)
+//   NumConnected = 전경 연결성분 개수 (8-연결. ContLength / SelectLargestBlob 과 같은 라벨링)
+//   NumHoles     = 리전이 둘러싼 배경 성분의 개수
+//   빈 리전이면 둘 다 0.
+GLIM_HALCON_API void ConnectAndHoles(const Region& region, long& numConnected, long& numHoles);
+
+// HALCON: euler_number(Regions : : : EulerNumber)
+//   EulerNumber = NumConnected - NumHoles.  **음수가 될 수 있다** (구멍이 성분보다 많을 때).
+//   ConnectAndHoles 와 **같은 코어 결과**에서 나오므로 두 값이 어긋날 수 없다.
+//   빈 리전이면 0.
+GLIM_HALCON_API void EulerNumber(const Region& region, long& eulerNumber);
+
+// HALCON: diameter_region(Regions : : : Row1, Column1, Row2, Column2, Diameter)
+//   경계점 쌍 중 유클리드 거리가 최대인 쌍과 그 거리를 돌려준다.
+//   ⚠ 픽셀은 **무한소 점**이다 (함정 #7). 단일 픽셀이면 Diameter = 0 이고
+//      네 좌표가 모두 그 픽셀이다. 픽셀을 변 1의 사각형으로 보는 구현과 값이 다르다.
+//   ⚠ 최대 거리 쌍이 **동률**일 때(정사각형의 두 대각선, 원판의 여러 지름 등)
+//      원문에 규정이 없다. 본 구현은 (Row1, Column1, Row2, Column2) 가 **사전순으로
+//      가장 작은** 쌍을 돌려준다. 거리 값 자체는 어느 쌍을 골라도 같다.
+//   빈 리전이면 네 좌표와 Diameter 가 전부 0 이다
+//   (원문도 이 동작을 명시하며 "혼동을 줄 수 있다" 고 경고한다).
+GLIM_HALCON_API void DiameterRegion(const Region& region,
+					long& row1, long& column1, long& row2, long& column2,
+					double& diameter);
+
+//------------------------------------------------------------------------------------
+// 3차 배치 계산 결과 — 구멍 검출 계열 4종이 내는 값 9개를 담는다.
+//
+// ⚠ 왜 또 새 구조체인가
+//   RegionFeatures · RegionMoments 와 같은 이유다. 이미 배포된 구조체에 필드를 붙이면
+//   sizeof 가 커져 **옛 헤더로 컴파일된 호출부가 링크는 되면서 스택을 넘겨 쓴다.**
+//   이 라이브러리는 검사기 여러 대에 소스로 배포되므로 재컴파일 누락이 실제로 일어난다.
+//   구조체를 나누면 그 사고가 원천적으로 불가능해진다.
+//   나눠서 생기는 성능 손해는 아래 ComputeFeaturesMomentsAndTopology 가 없앤다.
+//
+// 필드 규약은 RegionFeatures 와 같다. POD 로 유지하고 **필드는 끝에만** 추가한다.
+//------------------------------------------------------------------------------------
+struct RegionTopology
+{
+	// AreaHoles
+	long   areaHoles;			// 구멍 픽셀 총합
+
+	// ConnectAndHoles
+	long   numConnected;		// 전경 연결성분 개수 (8-연결)
+	long   numHoles;			// 구멍 개수
+
+	// EulerNumber
+	long   eulerNumber;			// numConnected - numHoles (음수 가능)
+
+	// DiameterRegion
+	long   diameterRow1;		// 첫 번째 극점의 행
+	long   diameterColumn1;		// 첫 번째 극점의 열
+	long   diameterRow2;		// 두 번째 극점의 행
+	long   diameterColumn2;		// 두 번째 극점의 열
+	double diameter;			// 두 극점 사이의 거리
+};
+
+// 구멍 검출 계열 4종을 한 번에 계산한다. 개별 호출과 **결과가 완전히 동일**하되,
+// 구멍 검출과 convex hull 을 리전당 1회만 한다.
+//   개별 4회 호출 : 구멍 검출 3회 + 윤곽 추적 4회 + hull 1회
+//   ComputeTopology: 구멍 검출 1회 + 윤곽 추적 1회 + hull 1회
+// 실패·빈 리전이면 전 필드가 0 이다 (개별 오퍼레이터와 같은 규약).
+GLIM_HALCON_API void ComputeTopology(const Region& region, RegionTopology& topology);
+
+// 1차 7값 + 2차 15값 + 3차 9값을 **컨텍스트 하나로** 계산한다.
+//   ComputeFeaturesAndMoments 와 ComputeTopology 를 따로 부르면 윤곽 추적과 hull 이
+//   각각 2회씩 일어난다. 이쪽은 1회다. 값은 어느 경로로 부르든 완전히 동일하다.
+// 진입 즉시 세 출력 구조체의 전 필드가 0 으로 초기화된다.
+//
+// ⚠ 이런 "N개 묶음" 함수는 배치가 늘 때마다 조합이 폭발한다. 4차 배치에서는
+//    이 방식을 더 늘리지 말고, 재사용 가능한 공개 컨텍스트 핸들을 도입해야 한다
+//    (설계안: docs/05_USER_GUIDE.md §6.5).
+GLIM_HALCON_API void ComputeFeaturesMomentsAndTopology(const Region& region,
+									   RegionFeatures& features,
+									   RegionMoments& moments,
+									   RegionTopology& topology);
+
+//------------------------------------------------------------------------------------
 // 검사기 연동 편의 API — HALCON 원명 대응이 없다 (이 라이브러리가 추가한 것)
 //
 // 검사기는 이진화된 crop 한 장을 던지고 "그 안의 불량 하나"의 특징값을 원한다.
