@@ -365,6 +365,197 @@ void CheckBatchMatchesIndividual(const char* name, const Region& region, const M
 }
 
 //------------------------------------------------------------------------------------
+// 3차 배치 — 한 도형의 구멍/지름 9값 (+ 교차검증용 Area / Convexity)
+//   개별 오퍼레이터 4종을 각각 호출해 채운다 (배치 API 와의 일치는 T-18 I-15 에서 검사).
+//------------------------------------------------------------------------------------
+struct MeasuredTopology
+{
+	const char* name;
+	long area;
+	double convexity;
+
+	long areaHoles;
+	long numConnected;
+	long numHoles;
+	long eulerNumber;
+	long row1, column1, row2, column2;
+	double diameter;
+};
+
+MeasuredTopology MeasureTopology(const char* name, const Region& region)
+{
+	MeasuredTopology m;
+	m.name = name;
+	m.area = 0;
+	m.convexity = 0.0;
+	m.areaHoles = 0;
+	m.numConnected = 0;
+	m.numHoles = 0;
+	m.eulerNumber = 0;
+	m.row1 = 0; m.column1 = 0; m.row2 = 0; m.column2 = 0;
+	m.diameter = 0.0;
+
+	double centerRow = 0.0;
+	double centerColumn = 0.0;
+
+	AreaCenter(region, m.area, centerRow, centerColumn);
+	Convexity(region, m.convexity);
+
+	AreaHoles(region, m.areaHoles);
+	ConnectAndHoles(region, m.numConnected, m.numHoles);
+	EulerNumber(region, m.eulerNumber);
+	DiameterRegion(region, m.row1, m.column1, m.row2, m.column2, m.diameter);
+	return m;
+}
+
+// 극점 좌표 정확값 대조 (최대쌍이 **유일한** 도형에서만 쓴다 — DR-2)
+void CheckDiameterPoints(const MeasuredTopology& m, long r1, long c1, long r2, long c2)
+{
+	char item[160];
+	char how[160];
+
+	const bool ok = (m.row1 == r1) && (m.column1 == c1) && (m.row2 == r2) && (m.column2 == c2);
+
+	std::sprintf(item, "%s 극점 (%ld,%ld)-(%ld,%ld)", m.name, m.row1, m.column1, m.row2, m.column2);
+	std::sprintf(how, "기댓값 (%ld,%ld)-(%ld,%ld)", r1, c1, r2, c2);
+
+	CheckCondition(ok, item, m.diameter, how);
+}
+
+//------------------------------------------------------------------------------------
+// T-18. 3차 배치 정의 연쇄 항등식 — 모든 도형에서 항상 성립해야 한다
+//   (docs/03_VERIFICATION.md §3C T-18)
+//------------------------------------------------------------------------------------
+void CheckTopologyIdentities(const MeasuredTopology& m)
+{
+	char item[160];
+
+	// I-8 : EulerNumber == NumConnected - NumHoles
+	//       ⭐ 이 배치에서 가장 중요하다. 깨지면 코어가 두 벌이라는 뜻이다.
+	std::sprintf(item, "%s I-8 Euler==NC-NH", m.name);
+	CheckCondition(m.eulerNumber == m.numConnected - m.numHoles,
+				   item, static_cast<double>(m.eulerNumber), "euler_number 는 두 값의 차여야 한다");
+
+	// I-9 : NumHoles == 0  <=>  AreaHoles == 0
+	std::sprintf(item, "%s I-9 NH==0<=>AH==0", m.name);
+	CheckCondition((m.numHoles == 0) == (m.areaHoles == 0),
+				   item, static_cast<double>(m.areaHoles), "개수와 면적이 같은 성분 집합에서 나오는가");
+
+	// I-10 : 구멍 하나는 최소 1픽셀
+	std::sprintf(item, "%s I-10 AH>=NH", m.name);
+	CheckCondition(m.areaHoles >= m.numHoles,
+				   item, static_cast<double>(m.areaHoles), "AreaHoles >= NumHoles");
+
+	// I-11 : Area > 0  <=>  NumConnected > 0
+	std::sprintf(item, "%s I-11 A>0<=>NC>0", m.name);
+	CheckCondition((m.area > 0) == (m.numConnected > 0),
+				   item, static_cast<double>(m.numConnected), "빈 리전 규약");
+
+	// I-12 : 돌려준 두 점이 실제로 그 거리를 만드는가
+	//        ⭐ 동률 도형(DR-2)에서 극점을 검사하는 유일한 수단이다.
+	{
+		const double dr = static_cast<double>(m.row1 - m.row2);
+		const double dc = static_cast<double>(m.column1 - m.column2);
+		const double distance = std::sqrt(dr * dr + dc * dc);
+
+		std::sprintf(item, "%s I-12 |P1-P2|==Diameter", m.name);
+		CheckCondition(std::fabs(distance - m.diameter) <= 1e-9,
+					   item, distance, "돌려준 점쌍이 실제로 Diameter 를 만드는가");
+	}
+
+	// I-13 : 구멍이 있으면 볼록도가 1 미만이다 (1차 배치와의 교차 검증)
+	//        구멍 픽셀은 hull 안에 반드시 들어가므로 hull 면적 > 리전 면적이다.
+	if (m.numHoles > 0)
+	{
+		std::sprintf(item, "%s I-13 NH>0 -> Convex<1", m.name);
+		CheckCondition(m.convexity < 1.0, item, m.convexity, "구멍이 있으면 Convexity < 1");
+	}
+
+	// I-14 : Area <= 1  <=>  Diameter == 0   (DR-1 픽셀 모델)
+	std::sprintf(item, "%s I-14 A<=1<=>D==0", m.name);
+	CheckCondition((m.area <= 1) == (m.diameter == 0.0),
+				   item, m.diameter, "픽셀 = 무한소 점. 2픽셀 이상이면 Diameter >= 1");
+}
+
+//------------------------------------------------------------------------------------
+// T-18 I-15. 배치 API 가 개별 오퍼레이터와 **비트 단위로 같은지**
+//------------------------------------------------------------------------------------
+void CheckTopologyBatch(const Region& region, const MeasuredTopology& m)
+{
+	RegionTopology batch;
+	ComputeTopology(region, batch);
+
+	RegionFeatures allFeatures;
+	RegionMoments allMoments;
+	RegionTopology allTopology;
+	ComputeFeaturesMomentsAndTopology(region, allFeatures, allMoments, allTopology);
+
+	RegionFeatures soloFeatures;
+	ComputeFeatures(region, soloFeatures);
+
+	RegionMoments soloMoments;
+	ComputeMoments(region, soloMoments);
+
+	const bool topologyMatch =
+		batch.areaHoles == m.areaHoles &&
+		batch.numConnected == m.numConnected &&
+		batch.numHoles == m.numHoles &&
+		batch.eulerNumber == m.eulerNumber &&
+		batch.diameterRow1 == m.row1 && batch.diameterColumn1 == m.column1 &&
+		batch.diameterRow2 == m.row2 && batch.diameterColumn2 == m.column2 &&
+		batch.diameter == m.diameter;
+
+	const bool combinedMatch =
+		allTopology.areaHoles == batch.areaHoles &&
+		allTopology.numConnected == batch.numConnected &&
+		allTopology.numHoles == batch.numHoles &&
+		allTopology.eulerNumber == batch.eulerNumber &&
+		allTopology.diameterRow1 == batch.diameterRow1 &&
+		allTopology.diameterColumn1 == batch.diameterColumn1 &&
+		allTopology.diameterRow2 == batch.diameterRow2 &&
+		allTopology.diameterColumn2 == batch.diameterColumn2 &&
+		allTopology.diameter == batch.diameter;
+
+	// 3배치 묶음이 기존 배치 API 의 값을 **하나도 바꾸지 않았는지** 함께 본다 (회귀 감시)
+	const bool featuresMatch =
+		allFeatures.area == soloFeatures.area &&
+		allFeatures.row == soloFeatures.row &&
+		allFeatures.column == soloFeatures.column &&
+		allFeatures.contLength == soloFeatures.contLength &&
+		allFeatures.circularity == soloFeatures.circularity &&
+		allFeatures.compactness == soloFeatures.compactness &&
+		allFeatures.convexity == soloFeatures.convexity;
+
+	const bool momentsMatch =
+		allMoments.m11 == soloMoments.m11 && allMoments.m20 == soloMoments.m20 &&
+		allMoments.m02 == soloMoments.m02 && allMoments.ia == soloMoments.ia &&
+		allMoments.ib == soloMoments.ib &&
+		allMoments.m11Invar == soloMoments.m11Invar &&
+		allMoments.m20Invar == soloMoments.m20Invar &&
+		allMoments.m02Invar == soloMoments.m02Invar &&
+		allMoments.ra == soloMoments.ra && allMoments.rb == soloMoments.rb &&
+		allMoments.phi == soloMoments.phi &&
+		allMoments.anisometry == soloMoments.anisometry &&
+		allMoments.bulkiness == soloMoments.bulkiness &&
+		allMoments.structureFactor == soloMoments.structureFactor &&
+		allMoments.orientation == soloMoments.orientation;
+
+	char item[160];
+
+	std::sprintf(item, "%s ComputeTopology==개별", m.name);
+	CheckCondition(topologyMatch, item, static_cast<double>(batch.areaHoles), "9 값 비트 단위 일치");
+
+	std::sprintf(item, "%s ComputeFMT==ComputeT", m.name);
+	CheckCondition(combinedMatch, item, static_cast<double>(allTopology.areaHoles), "9 값 비트 단위 일치");
+
+	std::sprintf(item, "%s ComputeFMT==ComputeF", m.name);
+	CheckCondition(featuresMatch, item, allFeatures.convexity, "7 값 비트 단위 일치 (1차 회귀)");
+
+	std::sprintf(item, "%s ComputeFMT==ComputeM", m.name);
+	CheckCondition(momentsMatch, item, allMoments.m20, "15 값 비트 단위 일치 (2차 회귀)");
+}
+
+//------------------------------------------------------------------------------------
 // HALCON Assertion 재현 확인 (함정 #1 클리핑 방향, 함정 #2 분자·분모 방향)
 //------------------------------------------------------------------------------------
 void CheckAssertions(const Measured& m)
@@ -787,6 +978,191 @@ int main()
 	std::printf("[T-6b] 판별 도형 3종의 1차 Assertion ----------------------------------------------\n");
 	for (int i = 0; i < 3; ++i)
 		CheckAssertions(extra[i]);
+	std::printf("\n");
+
+	//================================================================================
+	// 3차 배치 — 구멍 검출 계열 4종
+	//   area_holes / connect_and_holes / euler_number / diameter_region
+	//   (docs/02_DEFINITIONS.md §11~§14, docs/03_VERIFICATION.md §3C)
+	//================================================================================
+	Region s9  = shapes::MakeS9Checker2x2();		// HC-2 판별 (전경 연결성)
+	Region s10 = shapes::MakeS10Diamond();			// HC-1 판별 (배경 연결성) ★
+	Region s11 = shapes::MakeS11TwoHoles();			// 구멍 합산 / Euler 음수
+	Region s12 = shapes::MakeS12IslandInHole();		// HC-3 판별 (구멍 면적 집계 단위) ★
+
+	MeasuredTopology t1  = MeasureTopology("S1",  s1);
+	MeasuredTopology t2  = MeasureTopology("S2",  s2);
+	MeasuredTopology t3  = MeasureTopology("S3",  s3);
+	MeasuredTopology t4  = MeasureTopology("S4",  s4);
+	MeasuredTopology t5  = MeasureTopology("S5",  s5);
+	MeasuredTopology t6  = MeasureTopology("S6",  s6);
+	MeasuredTopology t7  = MeasureTopology("S7",  s7);
+	MeasuredTopology t1b = MeasureTopology("S1b", s1b);
+	MeasuredTopology t4t = MeasureTopology("S4T", s4t);
+	MeasuredTopology t8  = MeasureTopology("S8",  s8);
+	MeasuredTopology t9  = MeasureTopology("S9",  s9);
+	MeasuredTopology t10 = MeasureTopology("S10", s10);
+	MeasuredTopology t11 = MeasureTopology("S11", s11);
+	MeasuredTopology t12 = MeasureTopology("S12", s12);
+
+	const MeasuredTopology allTopology[14] = {
+		t1, t2, t3, t4, t5, t6, t7, t1b, t4t, t8, t9, t10, t11, t12
+	};
+	const Region* topologyRegions[14] = {
+		&s1, &s2, &s3, &s4, &s5, &s6, &s7, &s1b, &s4t, &s8, &s9, &s10, &s11, &s12
+	};
+
+	std::printf("====================================================================================\n");
+	std::printf(" GlimHalcon 3차 배치 - 구멍 검출 계열 측정값\n");
+	std::printf("====================================================================================\n");
+	std::printf("%-4s %8s %10s %6s %6s %7s %6s %6s %6s %6s %14s\n",
+				"ID", "Area", "AreaHoles", "NConn", "NHole", "Euler",
+				"Row1", "Col1", "Row2", "Col2", "Diameter");
+	std::printf("------------------------------------------------------------------------------------------------\n");
+	for (int i = 0; i < 14; ++i)
+	{
+		std::printf("%-4s %8ld %10ld %6ld %6ld %7ld %6ld %6ld %6ld %6ld %14.9f\n",
+					allTopology[i].name, allTopology[i].area, allTopology[i].areaHoles,
+					allTopology[i].numConnected, allTopology[i].numHoles, allTopology[i].eulerNumber,
+					allTopology[i].row1, allTopology[i].column1,
+					allTopology[i].row2, allTopology[i].column2,
+					allTopology[i].diameter);
+	}
+	std::printf("\n");
+
+	//--------------------------------------------------------------------------------
+	// T-14. area_holes   (§3C T-14)
+	//--------------------------------------------------------------------------------
+	std::printf("[T-14] area_holes -----------------------------------------------------------------\n");
+	CheckExact("S1 AreaHoles",  static_cast<double>(t1.areaHoles),  0.0);
+	CheckExact("S1b AreaHoles", static_cast<double>(t1b.areaHoles), 0.0);
+	CheckExact("S2 AreaHoles",  static_cast<double>(t2.areaHoles),  0.0);
+	CheckExact("S4 AreaHoles",  static_cast<double>(t4.areaHoles),  0.0);
+	CheckExact("S4T AreaHoles", static_cast<double>(t4t.areaHoles), 0.0);
+	// L자는 **오목**하지만 구멍은 없다. 볼록도와 구멍을 혼동한 구현이면 여기서 걸린다.
+	CheckExact("S5 AreaHoles (오목≠구멍)", static_cast<double>(t5.areaHoles), 0.0);
+	CheckExact("S6 AreaHoles",  static_cast<double>(t6.areaHoles),  0.0);
+	CheckExact("S7 AreaHoles",  static_cast<double>(t7.areaHoles),  0.0);
+	CheckExact("S8 AreaHoles",  static_cast<double>(t8.areaHoles),  0.0);
+	CheckExact("S9 AreaHoles",  static_cast<double>(t9.areaHoles),  0.0);
+
+	// S3 링: 안쪽 디지털 원판 R=25 의 픽셀 수. 연속 pi*25^2 = 1963.5 가 **아니다**
+	CheckExact("S3 AreaHoles (이산 정확값)", static_cast<double>(t3.areaHoles), 1961.0);
+	// 교차검증: |S2| - |S3| 가 그대로 구멍 면적이어야 한다
+	CheckCondition(t3.areaHoles == t2.area - t3.area,
+				   "S3 AreaHoles == |S2|-|S3|", static_cast<double>(t2.area - t3.area),
+				   "디지털 원판 차이와 일치해야 한다");
+
+	CheckExact("S11 AreaHoles (3x3 두 개)", static_cast<double>(t11.areaHoles), 18.0);
+
+	// ⭐ HC-1 판정 : 배경 8-연결이면 0 이 된다
+	CheckExact("S10 AreaHoles (HC-1)", static_cast<double>(t10.areaHoles), 1.0);
+	// ⭐ HC-3 판정 : 성분별 합 해석이면 49 가 된다 (섬 9px 이 끼어든다)
+	CheckExact("S12 AreaHoles (HC-3)", static_cast<double>(t12.areaHoles), 40.0);
+	std::printf("\n");
+
+	//--------------------------------------------------------------------------------
+	// T-15. connect_and_holes   (§3C T-15)
+	//--------------------------------------------------------------------------------
+	std::printf("[T-15] connect_and_holes ----------------------------------------------------------\n");
+	CheckExact("S1 NumConnected",  static_cast<double>(t1.numConnected), 1.0);
+	CheckExact("S1 NumHoles",      static_cast<double>(t1.numHoles),     0.0);
+	CheckExact("S3 NumConnected",  static_cast<double>(t3.numConnected), 1.0);
+	CheckExact("S3 NumHoles",      static_cast<double>(t3.numHoles),     1.0);
+	CheckExact("S5 NumConnected",  static_cast<double>(t5.numConnected), 1.0);
+	CheckExact("S6 NumConnected",  static_cast<double>(t6.numConnected), 1.0);
+	CheckExact("S7 NumConnected (빈리전)", static_cast<double>(t7.numConnected), 0.0);
+	CheckExact("S7 NumHoles (빈리전)",     static_cast<double>(t7.numHoles),     0.0);
+	// 성분 2개 — 두 사각형이 20행 떨어져 있어 8-연결로도 닿지 않는다
+	CheckExact("S8 NumConnected",  static_cast<double>(t8.numConnected), 2.0);
+	CheckExact("S11 NumHoles",     static_cast<double>(t11.numHoles),    2.0);
+	CheckExact("S12 NumConnected (테두리+섬)", static_cast<double>(t12.numConnected), 2.0);
+	CheckExact("S12 NumHoles",     static_cast<double>(t12.numHoles),    1.0);
+
+	// ⭐ HC-2 판정 : 전경 4-연결이면 2 가 된다 (contlength 가 세는 성분 수와 어긋난다)
+	CheckExact("S9 NumConnected (HC-2)", static_cast<double>(t9.numConnected), 1.0);
+	// ⭐ HC-1 판정 : 배경 8-연결이면 0 이 된다
+	CheckExact("S10 NumConnected", static_cast<double>(t10.numConnected), 1.0);
+	CheckExact("S10 NumHoles (HC-1)", static_cast<double>(t10.numHoles), 1.0);
+	std::printf("\n");
+
+	//--------------------------------------------------------------------------------
+	// T-16. euler_number   (§3C T-16)
+	//--------------------------------------------------------------------------------
+	std::printf("[T-16] euler_number ---------------------------------------------------------------\n");
+	CheckExact("S1 EulerNumber",  static_cast<double>(t1.eulerNumber),  1.0);
+	CheckExact("S2 EulerNumber",  static_cast<double>(t2.eulerNumber),  1.0);
+	CheckExact("S3 EulerNumber (링)", static_cast<double>(t3.eulerNumber), 0.0);
+	CheckExact("S4 EulerNumber",  static_cast<double>(t4.eulerNumber),  1.0);
+	CheckExact("S6 EulerNumber",  static_cast<double>(t6.eulerNumber),  1.0);
+	CheckExact("S7 EulerNumber",  static_cast<double>(t7.eulerNumber),  0.0);
+	CheckExact("S8 EulerNumber (성분2)", static_cast<double>(t8.eulerNumber), 2.0);
+	CheckExact("S9 EulerNumber",  static_cast<double>(t9.eulerNumber),  1.0);
+	// ⭐ 음수. 부호 없는 정수로 다루면 여기서 즉시 드러난다
+	CheckExact("S11 EulerNumber (음수)", static_cast<double>(t11.eulerNumber), -1.0);
+	// 2 - 1 = 1. S1 과 값은 같지만 경로가 전혀 다르다
+	CheckExact("S12 EulerNumber (2-1)",  static_cast<double>(t12.eulerNumber), 1.0);
+	// ⭐ HC-1 판정 : 배경 8-연결이면 1 이 된다
+	CheckExact("S10 EulerNumber (HC-1)", static_cast<double>(t10.eulerNumber), 0.0);
+	std::printf("\n");
+
+	//--------------------------------------------------------------------------------
+	// T-17. diameter_region   (§3C T-17)
+	//   ⭐ Diameter 값은 언제나 HARD. 극점 좌표는 최대쌍이 **유일한** 도형에서만 HARD (DR-2)
+	//--------------------------------------------------------------------------------
+	std::printf("[T-17] diameter_region ------------------------------------------------------------\n");
+	CheckAbs("S1 Diameter",  t1.diameter,  99.0 * kSqrt2, 1e-9);
+	CheckAbs("S1b Diameter", t1b.diameter, 49.0 * kSqrt2, 1e-9);
+	// 디지털 원판: 격자점이 반지름 위에 정확히 놓여 이산 지름이 정확히 100 이다 (§3C T-17 증명)
+	CheckExact("S2 Diameter (정확값)", t2.diameter, 100.0);
+	CheckExact("S3 Diameter (외곽만)", t3.diameter, 100.0);
+	CheckExact("S4 Diameter",  t4.diameter,  99.0);
+	CheckExact("S4T Diameter", t4t.diameter, 99.0);
+	CheckAbs("S5 Diameter",  t5.diameter,  99.0 * kSqrt2, 1e-9);
+	CheckAbs("S8 Diameter",  t8.diameter,  49.0 * kSqrt2, 1e-9);
+	CheckAbs("S9 Diameter",  t9.diameter,  kSqrt2, 1e-9);
+	CheckExact("S10 Diameter", t10.diameter, 2.0);
+	CheckAbs("S11 Diameter", t11.diameter, std::sqrt(260.0), 1e-9);
+	CheckAbs("S12 Diameter", t12.diameter, 10.0 * kSqrt2, 1e-9);
+
+	// ⭐ DR-1 판정 : 픽셀을 변 1의 사각형으로 보면 1.41421 이 나온다
+	CheckExact("S6 Diameter (DR-1)", t6.diameter, 0.0);
+	CheckExact("S7 Diameter (빈리전)", t7.diameter, 0.0);
+
+	// 극점 좌표 — 최대쌍이 유일한 도형만
+	CheckDiameterPoints(t4,  50, 0, 50, 99);
+	CheckDiameterPoints(t4t, 0, 50, 99, 50);
+	CheckDiameterPoints(t5,  0, 0, 99, 99);
+	CheckDiameterPoints(t8,  0, 0, 49, 49);
+	CheckDiameterPoints(t9,  0, 0, 1, 1);
+	CheckDiameterPoints(t6,  50, 50, 50, 50);		// 단일 픽셀: 네 좌표가 모두 그 픽셀
+	CheckDiameterPoints(t7,  0, 0, 0, 0);			// 빈 리전: 원문이 명시한 동작
+	std::printf("\n");
+
+	//--------------------------------------------------------------------------------
+	// T-18. 3차 배치 정의 연쇄 항등식 + 배치 API 일치
+	//--------------------------------------------------------------------------------
+	std::printf("[T-18] 3차 정의 연쇄 항등식 -------------------------------------------------------\n");
+	for (int i = 0; i < 14; ++i)
+		CheckTopologyIdentities(allTopology[i]);
+	std::printf("\n");
+
+	std::printf("[T-18 I-15] 배치 API 일치 ---------------------------------------------------------\n");
+	for (int i = 0; i < 14; ++i)
+		CheckTopologyBatch(*topologyRegions[i], allTopology[i]);
+	std::printf("\n");
+
+	//--------------------------------------------------------------------------------
+	// T-6c. 3차 판별 도형 4종에 대한 1차 배치 Assertion (회귀 감시 확장)
+	//--------------------------------------------------------------------------------
+	std::printf("[T-6c] 3차 판별 도형 4종의 1차 Assertion ------------------------------------------\n");
+	{
+		const Measured extra3[4] = {
+			Measure("S9", s9), Measure("S10", s10), Measure("S11", s11), Measure("S12", s12)
+		};
+		for (int i = 0; i < 4; ++i)
+			CheckAssertions(extra3[i]);
+	}
 	std::printf("\n");
 
 	//--------------------------------------------------------------------------------
