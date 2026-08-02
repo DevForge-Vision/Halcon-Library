@@ -10,9 +10,9 @@
 ![Platform](https://img.shields.io/badge/platform-Windows%20x86%20%7C%20x64-0078D6?style=flat-square&logo=windows&logoColor=white)
 ![Dependencies](https://img.shields.io/badge/dependencies-none-2EA043?style=flat-square)
 ![Header](https://img.shields.io/badge/public%20header-1-2EA043?style=flat-square)
-![Operators](https://img.shields.io/badge/구현-10%20%2F%2040-informational?style=flat-square)
+![Operators](https://img.shields.io/badge/구현-14%20%2F%2040-informational?style=flat-square)
 ![Tests](https://img.shields.io/badge/1차%205종-PASS%2070%20%2F%20FAIL%200-2EA043?style=flat-square)
-![Pending](https://img.shields.io/badge/2차%205종-빌드%20검증%20대기-orange?style=flat-square)
+![Pending](https://img.shields.io/badge/2차%205종%20·%203차%204종-빌드%20검증%20대기-orange?style=flat-square)
 
 </div>
 
@@ -234,7 +234,102 @@ void CInspector::SaveBlobFeatures(int frame, int lane,
 
 ---
 
-## 4. 구현된 오퍼레이터 — 10 / 40
+## 4. 구현된 오퍼레이터 — 14 / 40
+
+### 4-1. 원문 그룹 G1~G5 — 40종을 어떻게 나눴는가
+
+HALCON 13 Operator Reference 의 `Regions ▸ Features` 40종을 **원문 아카이브 5개 그룹**으로
+나눠 수집했습니다. 이 분류는 편의상 붙인 것이 아니라, **원문에서 공통 사항·수식 규약을
+공유하는 단위**입니다(예: G4 는 7종 전부가 같은 정규화 비교표를 씁니다).
+
+| 그룹 | 분류 | 원문 | 종수 | 구현 | 진행 |
+|:--:|---|---|:--:|:--:|---|
+| **G1** | 기본 / 크기 | [`G1_basic_size.md`](docs/reference/halcon13/G1_basic_size.md) | 8 | **6** | `██████░░` 75% |
+| **G2** | 형상 계수 | [`G2_shape_factors.md`](docs/reference/halcon13/G2_shape_factors.md) | 8 | **6** | `██████░░` 75% |
+| **G3** | 외접 / 내접 / 런렝스 | [`G3_geometry_runlength.md`](docs/reference/halcon13/G3_geometry_runlength.md) | 7 | 0 | `░░░░░░░` 0% |
+| **G4** | 모멘트 | [`G4_moments.md`](docs/reference/halcon13/G4_moments.md) | 7 | **2** | `██░░░░░` 29% |
+| **G5** | 선택 / 관계 | [`G5_select_relation.md`](docs/reference/halcon13/G5_select_relation.md) | 10 | 0 | `░░░░░░░░░░` 0% |
+| | **합계** | 2,094줄 | **40** | **14** | **35%** |
+
+> **구현 순서는 그룹 순서가 아닙니다.** 그룹은 *원문의* 묶음이고, 구현은 그것을 가로질러
+> **"값을 해석적으로 검증할 수 있는 5종 조합"** 단위(배치)로 진행합니다.
+> 그래서 1차 배치는 G1 2종 + G2 3종이었고, 3차 배치는 G1 4종이었습니다.
+
+<details>
+<summary><b>그룹별 40종 전체 목록 펼치기</b></summary>
+
+<br/>
+
+**G1 — 기본 / 크기 (6 / 8)**
+
+| 오퍼레이터 | 상태 | 비고 |
+|---|:--:|---|
+| `area_center` | ✅ | 1차 배치 |
+| `area_holes` | ✅ | 3차 배치 / 배경 4-연결 (미결 `HC-1`·`HC-3`) |
+| `contlength` | ✅ | 1차 배치 / 구멍 제외 |
+| `diameter_region` | ✅ | 3차 배치 / hull + 회전 캘리퍼스 (판정불가 `DR-2`) |
+| `connect_and_holes` | ✅ | 3차 배치 / 전경 8 ↔ 배경 4 |
+| `euler_number` | ✅ | 3차 배치 / `NumConnected − NumHoles` 코어 공유 |
+| `get_region_thickness` | ⬜ | 단일 리전만, 첫 성분만 |
+| `region_features` | ⬜ | 63 feature 파사드 |
+
+**G2 — 형상 계수 (6 / 8)**
+
+| 오퍼레이터 | 상태 | 비고 |
+|---|:--:|---|
+| `circularity` | ✅ | 1차 배치 / `min` 클리핑 |
+| `compactness` | ✅ | 1차 배치 / `max` 클리핑 (방향 반대) |
+| `convexity` | ✅ | 1차 배치 / `F_o / F_c` |
+| `eccentricity` | ✅ | 2차 배치 / `Rb=0` 방어 (미결 `EC-1`) |
+| `elliptic_axis` | ✅ | 2차 배치 / Phi 부호 함정 (미결 `EA-2`) |
+| `orientation_region` | ✅ | 2차 배치 / 미결 `OR-2` |
+| `rectangularity` | ⬜ | **닫힌 수식 없음 — 최난도** |
+| `roundness` | ⬜ | 4출력 |
+
+**G3 — 외접 / 내접 / 런렝스 (0 / 7)**
+
+| 오퍼레이터 | 상태 | 비고 |
+|---|:--:|---|
+| `inner_circle` | ⬜ | |
+| `inner_rectangle1` | ⬜ | "largest" 기준 원문 미명시 |
+| `smallest_circle` | ⬜ | radius **+0.5 보정** |
+| `smallest_rectangle1` | ⬜ | |
+| `smallest_rectangle2` | ⬜ | Length = **반변** (OpenCV 대비 2배) |
+| `runlength_distribution` | ⬜ | index 0 은 항상 0 |
+| `runlength_features` | ⬜ | LFactor 정의 모호 |
+
+**G4 — 모멘트 (2 / 7)**
+
+| 오퍼레이터 | 상태 | 비고 |
+|---|:--:|---|
+| `moments_region_2nd` | ✅ | 2차 배치 / **정규화 없음** (5출력) |
+| `moments_region_2nd_invar` | ✅ | 2차 배치 / `F²` 정규화 (미결 `MI-1`) |
+| `moments_region_2nd_rel_invar` | ⬜ | PHI1, PHI2 — **다음 배치 후보** |
+| `moments_region_3rd` | ⬜ | 부호 규약이 여기서부터 값을 바꾼다 |
+| `moments_region_3rd_invar` | ⬜ | `mu_00^3` 정규화 |
+| `moments_region_central` | ⬜ | I1~I4 |
+| `moments_region_central_invar` | ⬜ | PSI1~PSI4, 아핀 불변 |
+
+**G5 — 선택 / 관계 (0 / 10)**
+
+| 오퍼레이터 | 상태 | 비고 |
+|---|:--:|---|
+| `select_shape` | ⬜ | **63 feature 이름 체계의 근간** |
+| `select_shape_proto` | ⬜ | Operation 파라미터 없음 |
+| `select_shape_std` | ⬜ | |
+| `select_region_spatial` | ⬜ | |
+| `select_region_point` | ⬜ | |
+| `spatial_relation` | ⬜ | |
+| `hamming_distance` | ⬜ | Similarity 수식 미확보 |
+| `hamming_distance_norm` | ⬜ | 출력명은 `Distance` |
+| `find_neighbors` | ⬜ | MaxDistance 범위 1~255 |
+| `get_region_index` | ⬜ | |
+
+정의·검증·구현 3단 상태는 [`docs/00_OVERVIEW.md` §7](docs/00_OVERVIEW.md) 이 원본입니다.
+
+</details>
+
+### 4-2. 배치별 구현 현황
 
 ### 1차 배치 · 기본 형상 ✅ 실측 통과 (PASS 70 / FAIL 0)
 
@@ -256,13 +351,28 @@ void CInspector::SaveBlobFeatures(int frame, int lane,
 | `eccentricity` | `Eccentricity` | `Anisometry Bulkiness StructureFactor` | — |
 | `orientation_region` | `OrientationRegion` | `Phi` (`-π ≤ φ < π`) | — |
 
-### HALCON 원명 대응이 없는 추가 API 5개
+### 3차 배치 · 구멍 검출 계열 🟡 빌드 검증 대기
+
+| 오퍼레이터 | C++ 함수 | 출력 | 연결성 |
+|---|---|---|---|
+| `area_holes` | `AreaHoles` | `Area` (구멍 픽셀 총합) | 배경 **4-연결** |
+| `connect_and_holes` | `ConnectAndHoles` | `NumConnected NumHoles` | 전경 **8** ↔ 배경 **4** |
+| `euler_number` | `EulerNumber` | `EulerNumber` (**음수 가능**) | 위와 같은 코어 |
+| `diameter_region` | `DiameterRegion` | `Row1 Column1 Row2 Column2 Diameter` | — (hull) |
+
+> **전경과 배경의 연결성은 서로 반대여야 합니다.** 둘 다 8-연결로 잡으면 대각으로만 닫힌
+> 고리에서 "구멍 안이 바깥과 통하는" 위상적 모순이 생겨, 세 값이 동시에 틀립니다.
+> 원문에 명시가 없어 미결(`HC-1`)로 등록하고 내부 스위치로 뒤집을 수 있게 뒀습니다.
+
+### HALCON 원명 대응이 없는 추가 API 7개
 
 | 함수 | 용도 |
 |---|---|
 | `ComputeFeatures(region, RegionFeatures&)` | 1차 5종의 값 7개를 한 번에 |
 | `ComputeMoments(region, RegionMoments&)` | 2차 5종의 값 15개를 한 번에 |
-| `ComputeFeaturesAndMoments(region, f, m)` | 위 둘을 합쳐 윤곽 추적 1회 · hull 1회 · 모멘트 1회 |
+| `ComputeTopology(region, RegionTopology&)` | 3차 4종의 값 9개를 한 번에 |
+| `ComputeFeaturesAndMoments(region, f, m)` | 7값 + 15값. 윤곽 추적 1회 · hull 1회 · 모멘트 1회 |
+| `ComputeFeaturesMomentsAndTopology(region, f, m, t)` | 위에 9값까지. 컨텍스트 하나로 전부 |
 | `SelectLargestBlob(region)` | 최대 연결성분(8-연결) 하나만 남긴 리전. 동률이면 스캔 순서상 먼저인 것 |
 | `ComputeLargestBlobFeatures(data, w, h, stride, f)` | 검사기 원샷. **이 함수만 `bool` 반환** |
 
@@ -298,7 +408,7 @@ if (m.rb == 0.0 || m.anisometry > 5.0)  nType = SCRATCH;   // ✓
 같은 이유로 `StructureFactor` 는 이때 `-1.0` 입니다. 자세한 내용은
 [`docs/05_USER_GUIDE.md` §4.8](docs/05_USER_GUIDE.md).
 
-### ⚠ `RegionFeatures` · `RegionMoments` 는 POD 이고, 레이아웃이 곧 ABI 입니다
+### ⚠ `RegionFeatures` · `RegionMoments` · `RegionTopology` 는 POD 이고, 레이아웃이 곧 ABI 입니다
 
 필드를 추가하면 `sizeof` 가 바뀌어, **옛 헤더로 컴파일된 호출부가 링크는 되면서 스택을 넘겨 씁니다.**
 
@@ -317,7 +427,7 @@ if (m.rb == 0.0 || m.anisometry > 5.0)  nType = SCRATCH;   // ✓
 │  Feature   FeatureContext   중간산물 캐시(지연계산)        │  ← 성능의 핵심
 ├──────────────────────────────────────────────────────────┤
 │  Core      Region (런렝스, 불변)                          │
-│            Contour · ConvexHull · Moments                │
+│            Contour · ConvexHull · Moments · Holes        │
 └──────────────────────────────────────────────────────────┘
         전 계층 표준 라이브러리만 사용 — 외부 의존성 없음
 ```
@@ -330,7 +440,9 @@ if (m.rb == 0.0 || m.anisometry > 5.0)  nType = SCRATCH;   // ✓
 | **`ConvexHull`** | monotone chain 으로 껍질을 구한 뒤 **스캔라인 래스터화해 픽셀을 셉니다.** 폴리곤 면적을 쓰면 정사각형에서 `convexity = 1.0203` 이 나와 HALCON 자신의 Assertion(≤1)을 위반합니다 |
 | **2차 모멘트** | 런당 상수시간(등차수열 합 + Faulhaber 제곱합). 무게중심에 가장 가까운 **격자점으로 좌표를 먼저 옮기고** 소수부만 보정합니다 — 원시 모멘트를 그대로 빼면 큰 이미지에서 자리수가 통째로 날아갑니다 |
 | **`Ia` / `Ib`** | 공분산 고유값을 원문 형태가 아니라 **항등 변형** `((M20−M02)/2)² + M11²` 으로 계산합니다. 원문 형태는 큰 두 수의 차라 대면적에서 유효자리가 전멸하고, 부동소수 오차로 음수가 되어 `sqrt` 가 NaN 을 냅니다. 값은 대수적으로 같습니다 |
-| **`FeatureContext`** | 윤곽·hull·모멘트·최원점을 **리전당 1회만** 계산하고 캐시합니다. 배치 API 가 빠른 이유가 이것입니다 |
+| **구멍 검출** | 배경도 **런렝스**로 표현하고 "바깥" 가상 노드 하나로 union-find 합니다. 배경 런 수는 전경 런 수의 2배 이하라 메모리가 O(런 수)이고, 바운딩박스 크기와 무관합니다. `area_holes`·`connect_and_holes`·`euler_number` 가 이 결과 **하나**를 나눠 쓰므로 `Euler = NC − NH` 가 구조적으로 깨질 수 없습니다 |
+| **`diameter_region`** | 최대 거리 쌍은 반드시 hull 정점 쌍이므로 hull 위에서 **회전 캘리퍼스**로 찾습니다. 비교는 **제곱거리 정수**로 하고 `sqrt` 는 마지막 한 번뿐입니다 — 부동소수로 비교하면 동률 판정이 흔들려 결과가 결정론적이지 않게 됩니다 |
+| **`FeatureContext`** | 윤곽·hull·모멘트·최원점·구멍을 **리전당 1회만** 계산하고 캐시합니다. 배치 API 가 빠른 이유가 이것입니다 |
 | **OpenCV 미사용** | 편의상 뺀 게 아니라 **값이 달라서** 뺐습니다. `cv::arcLength` 는 근사 폴리곤, `cv::contourArea` 는 폴리곤 면적, `cv::minAreaRect` 는 HALCON 대비 2배(반변 규약)입니다 |
 
 설계 제약과 근거는 [`docs/01_ARCHITECTURE.md`](docs/01_ARCHITECTURE.md),
