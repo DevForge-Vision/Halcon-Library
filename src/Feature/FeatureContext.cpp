@@ -21,8 +21,17 @@ FeatureContext::FeatureContext(const RegionData* region)
 	, m_maxDistance(0.0)
 	, m_hasFarthestPoint(false)
 	, m_farthestPoint()
+	, m_hasHull(false)
+	, m_hull()
 	, m_hasHullArea(false)
 	, m_hullArea(0)
+	, m_hasDiameter(false)
+	, m_hasDiameterPoints(false)
+	, m_diameterPoint1()
+	, m_diameterPoint2()
+	, m_diameter(0.0)
+	, m_hasHoleCounts(false)
+	, m_holeCounts()
 	, m_hasMoments(false)
 	, m_moments()
 	, m_hasInvarSource(false)
@@ -177,6 +186,42 @@ bool FeatureContext::GetFarthestContourPoint(Point& point) const
 }
 
 //------------------------------------------------------------------------------------
+// convex hull 정점 — convexity 의 F_c 와 diameter_region 이 **같은 hull** 을 본다.
+//
+// 3차 배치 전에는 hull 을 GetConvexHullArea() 안에서 만들고 버렸다. diameter_region 이
+// 같은 hull 을 필요로 하는데, 각자 계산하게 두면 "면적을 잰 hull" 과 "지름을 잰 hull" 이
+// 어긋날 여지가 생긴다. GetMaxContourDistance / GetFarthestContourPoint 를 한 순회로
+// 묶은 것과 같은 판단이다 (01_ARCHITECTURE.md §9, 2026-07-28).
+//
+// 계산 입력(외곽 contour 픽셀)과 알고리즘이 완전히 같으므로 **convexity 값은 변하지 않는다.**
+//------------------------------------------------------------------------------------
+void FeatureContext::EnsureConvexHull() const
+{
+	if (m_hasHull)
+		return;
+
+	m_hasHull = true;
+	m_hull.clear();
+
+	if (IsEmpty())
+		return;
+
+	std::vector<Point> points;
+	GetContours().Flatten(points);		// CV-2: hull 입력은 외곽 contour 픽셀
+	if (points.empty())
+		return;
+
+	if (!ComputeConvexHull(points, m_hull))
+		m_hull.clear();
+}
+
+const std::vector<Point>& FeatureContext::GetConvexHullVertices() const
+{
+	EnsureConvexHull();
+	return m_hull;
+}
+
+//------------------------------------------------------------------------------------
 // convexity 의 F_c — hull 을 래스터화한 픽셀 개수 (CV-1 확정)
 //------------------------------------------------------------------------------------
 long FeatureContext::GetConvexHullArea() const
@@ -190,17 +235,76 @@ long FeatureContext::GetConvexHullArea() const
 	if (IsEmpty())
 		return m_hullArea;
 
-	std::vector<Point> points;
-	GetContours().Flatten(points);		// CV-2: hull 입력은 외곽 contour 픽셀
-	if (points.empty())
-		return m_hullArea;
-
-	std::vector<Point> hull;
-	if (!ComputeConvexHull(points, hull))
+	const std::vector<Point>& hull = GetConvexHullVertices();
+	if (hull.empty())
 		return m_hullArea;
 
 	m_hullArea = RasterizeHullArea(hull);
 	return m_hullArea;
+}
+
+//------------------------------------------------------------------------------------
+// diameter_region — hull 위의 최대 거리 점쌍 (docs/02_DEFINITIONS.md §14)
+//------------------------------------------------------------------------------------
+void FeatureContext::EnsureDiameter() const
+{
+	if (m_hasDiameter)
+		return;
+
+	m_hasDiameter = true;
+	m_hasDiameterPoints = false;
+	m_diameterPoint1 = Point();
+	m_diameterPoint2 = Point();
+	m_diameter = 0.0;
+
+	if (IsEmpty())
+		return;
+
+	const std::vector<Point>& hull = GetConvexHullVertices();
+	if (hull.empty())
+		return;
+
+	m_hasDiameterPoints =
+		ComputeHullDiameter(hull, m_diameterPoint1, m_diameterPoint2, m_diameter);
+
+	if (!m_hasDiameterPoints)
+	{
+		m_diameterPoint1 = Point();
+		m_diameterPoint2 = Point();
+		m_diameter = 0.0;
+	}
+}
+
+bool FeatureContext::GetDiameter(Point& point1, Point& point2, double& diameter) const
+{
+	EnsureDiameter();
+	point1 = m_diameterPoint1;
+	point2 = m_diameterPoint2;
+	diameter = m_diameter;
+	return m_hasDiameterPoints;
+}
+
+//------------------------------------------------------------------------------------
+// 구멍 검출 — area_holes / connect_and_holes / euler_number 세 종의 공유 지점.
+//
+// ★ 리전당 **1회만** 계산된다. 그래서 EulerNumber = NumConnected - NumHoles 가
+//   구조적으로 항상 성립한다 (docs/03_VERIFICATION.md T-18 I-8).
+//------------------------------------------------------------------------------------
+const HoleCounts& FeatureContext::GetHoleCounts() const
+{
+	if (m_hasHoleCounts)
+		return m_holeCounts;
+
+	m_hasHoleCounts = true;
+	m_holeCounts = HoleCounts();		// 전 필드 0
+
+	if (IsEmpty())
+		return m_holeCounts;
+
+	if (!ComputeHoleCounts(*m_pRegion, m_holeCounts))
+		m_holeCounts = HoleCounts();
+
+	return m_holeCounts;
 }
 
 //------------------------------------------------------------------------------------

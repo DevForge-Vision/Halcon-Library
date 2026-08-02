@@ -15,6 +15,7 @@
 #include "Contour.h"
 #include "ConvexHull.h"
 #include "Moments.h"
+#include "Holes.h"
 
 namespace glim { namespace halcon { namespace core {
 
@@ -46,8 +47,27 @@ public:
 	//   윤곽이 비어 있으면 false 를 반환하고 point 는 (0,0) 이다.
 	bool GetFarthestContourPoint(Point& point) const;
 
+	// convex hull 정점 (Andrew monotone chain 결과, 공선 정점 제거됨).
+	//   convexity 의 F_c 와 diameter_region 이 **같은 hull** 을 본다.
+	//   3차 배치 전에는 hull 을 GetConvexHullArea() 안에서 만들고 버렸는데,
+	//   diameter_region 이 같은 hull 을 필요로 해서 캐시로 승격시켰다.
+	//   면적 계산에 넘기는 입력이 완전히 같으므로 convexity 값은 변하지 않는다.
+	const std::vector<Point>& GetConvexHullVertices() const;
+
 	// convex hull 을 래스터화한 픽셀 개수 (convexity 의 F_c)
 	long GetConvexHullArea() const;
+
+	//--------------------------------------------------------------------------------
+	// 3차 배치 (docs/02_DEFINITIONS.md §11~§14)
+	//--------------------------------------------------------------------------------
+
+	// diameter_region 의 극점 두 개와 거리. 위 hull 위에서 회전 캘리퍼스로 구한다.
+	//   빈 리전이면 false 를 반환하고 출력은 (0,0), (0,0), 0.0 이다.
+	bool GetDiameter(Point& point1, Point& point2, double& diameter) const;
+
+	// 구멍 검출 결과. area_holes / connect_and_holes / euler_number 세 종이 공유한다.
+	//   리전당 **1회만** 계산되므로 세 값이 서로 어긋날 수 없다.
+	const HoleCounts& GetHoleCounts() const;
 
 	//--------------------------------------------------------------------------------
 	// 2차 모멘트 계열 (docs/02_DEFINITIONS.md §6~§10)
@@ -70,6 +90,8 @@ private:
 	void EnsureAreaCenter() const;
 	void EnsureContours() const;
 	void EnsureFarthestContour() const;
+	void EnsureConvexHull() const;
+	void EnsureDiameter() const;
 
 	const RegionData* m_pRegion;
 
@@ -91,8 +113,20 @@ private:
 	mutable bool m_hasFarthestPoint;
 	mutable Point m_farthestPoint;
 
+	mutable bool m_hasHull;
+	mutable std::vector<Point> m_hull;
+
 	mutable bool m_hasHullArea;
 	mutable long m_hullArea;
+
+	mutable bool m_hasDiameter;
+	mutable bool m_hasDiameterPoints;
+	mutable Point m_diameterPoint1;
+	mutable Point m_diameterPoint2;
+	mutable double m_diameter;
+
+	mutable bool m_hasHoleCounts;
+	mutable HoleCounts m_holeCounts;
 
 	mutable bool m_hasMoments;
 	mutable CentralMoments2nd m_moments;
