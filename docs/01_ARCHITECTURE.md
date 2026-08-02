@@ -43,7 +43,7 @@
 │            FeatureRegistry — "이름 → 계산함수" 레지스트리   │     select_shape 의 근간
 ├──────────────────────────────────────────────────────────┤
 │  Core      Region (런렝스, 불변, shared_ptr)              │  ← 자료구조
-│            Contour / ConvexHull / Moments                │
+│            Contour / ConvexHull / Moments / Holes        │
 ├──────────────────────────────────────────────────────────┤
 │  Backend   OpenCV · 자체 알고리즘  (헤더 밖으로 안 나감)    │
 └──────────────────────────────────────────────────────────┘
@@ -92,8 +92,9 @@ struct Run { int row; int colBegin; int colEnd; };
 ```
               ┌─ area, center ──────── area_center, circularity, compactness …
    Region ────┼─ contour ───────────── contlength, circularity, roundness …
-   (런렝스)    ├─ convexHull ────────── convexity, rectangularity
-              └─ moments (m00..m30) ── elliptic_axis, eccentricity, orientation, moments_* 7종
+   (런렝스)    ├─ convexHull ────────── convexity, rectangularity, diameter_region
+              ├─ moments (m00..m30) ── elliptic_axis, eccentricity, orientation, moments_* 7종
+              └─ holeCounts ────────── area_holes, connect_and_holes, euler_number
 ```
 
 - 각 중간산물은 **처음 요청될 때 1회 계산**하고 이후 재사용한다.
@@ -154,6 +155,25 @@ void ComputeFeaturesAndMoments(const Region& region,          // 컨텍스트 �
                                RegionFeatures& features,
                                RegionMoments& moments);
 
+// 3차 배치 — 구멍 검출 계열 4종 (2026-07-29)
+//   정수 출력은 전부 long. 공개 경계에 정수 타입을 하나만 둔다
+void AreaHoles       (const Region&, long& area);
+void ConnectAndHoles (const Region&, long& numConnected, long& numHoles);
+void EulerNumber     (const Region&, long& eulerNumber);
+void DiameterRegion  (const Region&, long& row1, long& column1,
+                      long& row2, long& column2, double& diameter);
+
+struct RegionTopology                // POD. RegionFeatures/RegionMoments 와 또 **분리**한다
+{
+    long   areaHoles;
+    long   numConnected, numHoles, eulerNumber;
+    long   diameterRow1, diameterColumn1, diameterRow2, diameterColumn2;
+    double diameter;
+};
+void ComputeTopology(const Region& region, RegionTopology& topology);
+void ComputeFeaturesMomentsAndTopology(const Region&,          // 컨텍스트 하나로 7 + 15 + 9
+                                       RegionFeatures&, RegionMoments&, RegionTopology&);
+
 // 검사기 연동 편의 API (HALCON 원명 대응 없음)
 Region SelectLargestBlob(const Region& region);               // 최대 8-연결 성분 하나만
 bool   ComputeLargestBlobFeatures(const unsigned char* data,  // 마스크 → 최대 blob → 7종
@@ -200,7 +220,7 @@ Halcon-Library/
 ├── include/
 │   └── GlimHalcon.h             (예정) 공개 헤더 — OpenCV 노출 금지
 ├── src/
-│   ├── Core/                    (예정) Region, Contour, ConvexHull, Moments
+│   ├── Core/                    (예정) Region, Contour, ConvexHull, Moments, Holes
 │   ├── Feature/                 (예정) FeatureContext, FeatureRegistry
 │   └── Facade/                  (예정) 오퍼레이터 구현
 └── test/
@@ -238,6 +258,12 @@ Halcon-Library/
 | 2026-07-28 | 대신 `ComputeFeaturesAndMoments` 추가 | 구조체를 나눈 대가(컨텍스트 2회 생성 → 윤곽 추적 2회)를 없앤다. **나눠도 성능 손해가 없게** 만든 뒤에 나눴다 |
 | 2026-07-28 | 미결 쟁점 스위치를 **내부 헤더의 매크로**로 (`src/Core/Moments.h`) | 런타임 `const bool` 분기는 MSVC `/W4` 에서 `C4127`(조건식이 상수)을 낸다. `#if` 는 경고가 없고, 기본 분기가 항상 컴파일된다. 공개 헤더가 아니므로 사용처를 오염시키지 않는다 |
 | 2026-07-28 | `GetMaxContourDistance` 와 최원 윤곽점을 **한 순회**로 통합 | `circularity` 의 `max` 와 `orientation_region` 의 기준점은 같은 점이어야 한다. 순회를 두 벌 두면 언젠가 어긋난다. 값은 불변(초기값만 `0.0`→`-1.0`, 최댓값은 동일) |
+| 2026-07-29 | 3차 배치 결과를 **`RegionTopology` 새 구조체**로 또 분리 | `RegionFeatures`·`RegionMoments` 와 같은 이유다. 이미 배포된 구조체에 필드를 붙이면 `sizeof` 가 커져 옛 헤더로 컴파일된 호출부가 스택을 넘겨 쓴다. 대가(컨텍스트 중복)는 `ComputeFeaturesMomentsAndTopology` 로 없앤 뒤에 나눴다 |
+| 2026-07-29 | 구멍 검출에서 **배경도 런렝스로** 표현 (`src/Core/Holes.cpp`) | dense 배경 이미지를 만들면 2026-07-21 에 제거한 1.3 GB 사고가 그대로 재발한다. 배경 런 수 ≤ 2 × 전경 런 수이므로 **O(런 수)** 다. 좌우 여백 열만 만들고 위/아래 여백 행은 "이웃 행에 전경이 없으면 바깥" 규칙으로 대신해, **빈 행을 자료구조로 만들지 않는다** |
+| 2026-07-29 | `area_holes` · `connect_and_holes` · `euler_number` 를 **코어 하나**(`ComputeHoleCounts`)로 | 원문이 오일러 수를 "연결성분 수 − 구멍 수" 로 정의한다. 구현이 두 벌이면 원문 정의 자체를 어기게 된다. `LabelConnectedRuns` 를 하나로 묶은 것(2026-07-21)과 같은 판단이며, 전경 성분 개수도 그 함수를 **그대로** 호출해 `contlength` 와 어긋날 여지를 없앴다 |
+| 2026-07-29 | `FeatureContext` 가 hull **정점**까지 캐시 | `convexity`(hull 면적)와 `diameter_region`(hull 위 최대거리 쌍)이 **같은 hull** 을 봐야 한다. 각자 계산하게 두면 언젠가 갈린다. 계산 입력이 동일하므로 `convexity` 값은 변하지 않는다 |
+| 2026-07-29 | 미결 쟁점 스위치를 `src/Core/Holes.h` 상단 매크로로 (`GLIM_HALCON_BACKGROUND_CONNECTIVITY_8`) | `src/Core/Moments.h` 와 같은 방식. 내부 헤더이므로 사용처를 오염시키지 않고, `#if` 는 `/W4` 경고가 없다 |
+| 2026-07-29 | ⚠ **N개 묶음 배치 함수는 여기서 멈춘다** | `ComputeFeatures` → `ComputeFeaturesAndMoments` → `ComputeFeaturesMomentsAndTopology` 로 배치마다 이름이 길어지고 조합이 늘고 있다. 4차 배치에서는 이 방식을 더 늘리지 말고 **재사용 가능한 공개 컨텍스트 핸들**을 도입해야 한다 (설계안: `05_USER_GUIDE.md` §6.5). 지금 도입하지 않은 이유는, 그것이 새 공개 타입 하나를 영구히 추가하는 결정이라 배치 작업 중에 끼워 넣을 사안이 아니기 때문이다 |
 
 ---
 

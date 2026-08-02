@@ -70,7 +70,8 @@ TeX 폰트 인코딩으로 역매핑하고 SVG transform 좌표로 분수선·�
 | 4 | `moments_region_2nd` 는 **정규화가 없다**(순수 합) | 면적으로 나누면 전 모멘트 계열이 오염 |
 | 5 | 모멘트 부호 규약: 2nd 는 `(중심−픽셀)`, 3rd 는 `(픽셀−중심)` | 3차 홀수항 부호가 뒤집힌다 |
 | 6 | `smallest_rectangle2` 의 Length1/2 는 **반변(half length)** | OpenCV `minAreaRect` 와 2배 차이 |
-| 7 | 픽셀은 **면적 1의 사각형이 아니라 무한소 점**으로 취급된다 | 1픽셀 두께 리전에서 `Rb=0` → 0 나눗셈 크래시 |
+| 7 | 픽셀은 **면적 1의 사각형이 아니라 무한소 점**으로 취급된다 | 1픽셀 두께 리전에서 `Rb=0` → 0 나눗셈 크래시 / 단일 픽셀 `Diameter` 가 √2 로 나온다 |
+| 7b | **전경과 배경의 연결성은 반대여야 한다** (전경 8 ↔ 배경 4) | 둘 다 8 로 잡으면 `NumHoles`·`EulerNumber` 가 대각 도형에서 모순된 값을 낸다 |
 | 8 | `region_features` 의 feature 이름은 **63종**, 오퍼레이터 40종과 별개 체계 | 이름 매핑을 오퍼레이터 기준으로 짜면 어긋난다 |
 
 ---
@@ -142,22 +143,23 @@ OpenCV  cv::Point(x, y)          ← 내부 전용, 경계에서 변환
 
 ---
 
-## 6. 현재 상태 (2026-07-28 · 2차 배치 구현 완료 / **미빌드**)
+## 6. 현재 상태 (2026-07-29 · 3차 배치 구현 완료 / **미빌드**)
 
 | 항목 | 상태 |
 |---|---|
 | 원문 수집 | ✅ 완료 — 40종 전부, `docs/reference/halcon13/` 2094줄 |
 | 아키텍처 설계 | ✅ 완료 — `docs/01_ARCHITECTURE.md` |
-| 정의서 | 🟡 **10종 / 40종** 확정 (1차 5종 + 2차 모멘트 계열 5종) |
-| 검증 기댓값 | ✅ 10종 손계산 완료 — 판정 `P-1`~`P-9` 해소, 미결 4건 |
+| 정의서 | 🟡 **14종 / 40종** 확정 (1차 5종 + 2차 모멘트 5종 + 3차 구멍 4종) |
+| 검증 기댓값 | ✅ 14종 손계산 완료 — 판정 `P-1`~`P-13` 해소, 미결 6건 |
 | 구현 (1차 배치) | ✅ `area_center` `contlength` `circularity` `compactness` `convexity` |
 | 배치·검사기 API | ✅ `RegionFeatures` / `ComputeFeatures` / `ComputeLargestBlobFeatures` / `SelectLargestBlob` |
 | 구현 (2차 배치) | ✅ `moments_region_2nd` `moments_region_2nd_invar` `elliptic_axis` `eccentricity` `orientation_region` + `RegionMoments` / `ComputeMoments` / `ComputeFeaturesAndMoments` |
-| 단위테스트 | 🟡 1차 **PASS 70 / FAIL 0** 실측 완료. **2차 분은 미실행**(빌드 금지 지시) |
+| 구현 (3차 배치) | ✅ `area_holes` `connect_and_holes` `euler_number` `diameter_region` + `RegionTopology` / `ComputeTopology` / `ComputeFeaturesMomentsAndTopology` |
+| 단위테스트 | 🟡 1차 **PASS 70 / FAIL 0** 실측 완료. **2·3차 분은 미실행**(빌드 금지 지시) |
 | HALCON 실물 대조 (V2) | ⬜ **미실시** — HALCON 13 환경 확보 시 수행 |
 
 **기준선:** 1차 배치까지 MSVC 19.50 (VS 2026 v14.50) x64 Release, `/W4` 경고 0, ctest 3/3 실측.
-**2차 배치는 작업트리에만 있고 빌드·실행 검증을 하지 않았다.** 소유자가 직접 빌드한다.
+**2·3차 배치는 작업트리에만 있고 빌드·실행 검증을 하지 않았다.** 소유자가 직접 빌드한다.
 
 > ⚠️ 이 표는 갱신일 기준이다. 작업 재개 시 **`git log --oneline` 으로 실제 진도를 먼저 확인하라.**
 > 40종 개별 현황은 `docs/00_OVERVIEW.md` §7 이 정본이다.
@@ -172,18 +174,23 @@ OpenCV  cv::Point(x, y)          ← 내부 전용, 경계에서 변환
 | `EC-1` | `Rb=0` 일 때 `StructureFactor` 가 `−1` 인가 `0` 인가 | **S4/S6** 실측. 스위치 `GLIM_HALCON_STRUCTURE_FACTOR_ZERO_ON_RB0` |
 | `OR-2` | `orientation_region` 의 `+π` 후 범위 접기 | 스위치 `GLIM_HALCON_ORIENTATION_WRAP` |
 | `OR-3` | 대칭 도형의 최원점 동률 | **판정 불가**(원문 미명시). 대칭 도형은 집합 소속만 검사 |
+| `HC-1` | **배경 연결성이 4-연결인가 8-연결인가** (전경은 8-연결 고정) | **S10** 대각 다이아몬드 실측. 스위치 `GLIM_HALCON_BACKGROUND_CONNECTIVITY_8`. ⚠ 뒤집히면 `area_holes`·`connect_and_holes`·`euler_number` **3종이 동시에** 바뀐다 |
+| `HC-3` | 구멍 면적을 리전 전체로 세는가, 성분별 합인가 | **S12** 실측(40 vs 49). 스위치 없음 — 대안이 중첩 구조에서 정의 불능 |
+| `DR-2` | 최대거리 쌍의 동률 | **판정 불가**(원문 미명시). 사전순 최소 쌍으로 고정, `Diameter` 값만 정확값 대조 |
 
-스위치는 전부 `src/Core/Moments.h` 상단에 있다. **내부 헤더라 사용처를 오염시키지 않는다.**
+스위치는 `src/Core/Moments.h` (2차) 와 `src/Core/Holes.h` (3차) 상단에 있다.
+**둘 다 내부 헤더라 사용처를 오염시키지 않는다.**
 
 ### 다음에 할 일 (우선순위 순)
 
-1. **2차 배치 빌드·테스트 실행**(소유자). 기존 `PASS 70 / FAIL 0` 이 떨어지지 않는지 먼저 확인
+1. **2·3차 배치 빌드·테스트 실행**(소유자). 기존 `PASS 70 / FAIL 0` 이 떨어지지 않는지 먼저 확인
 2. `moments_region_2nd_rel_invar` → `moments_region_3rd` 계열
    (함정 #5 **부호 규약이 3차 홀수항에서부터 실제로 값을 바꾼다.** 2차는 영향 없음 — `02_DEFINITIONS.md` §6.3)
-3. HALCON 환경 확보 시 V2 실측으로 `R-1` · `MI-1` · `EA-2` · `EC-1` 해소
+3. HALCON 환경 확보 시 V2 실측으로 `R-1` · `MI-1` · `EA-2` · `EC-1` · **`HC-1`** · `HC-3` 해소
 4. `roundness` — `elliptic_axis` 와 같은 윤곽/중심 캐시를 그대로 쓴다
-5. (선택) 재사용 워크스페이스 API — `ComputeLargestBlobFeatures` 호출당 힙 할당 51회를
-   줄이는 개선안. 설계만 `docs/05_USER_GUIDE.md` §6.5 에 있고 미구현이다
+5. ⚠ **재사용 공개 컨텍스트 API** — 배치가 늘 때마다 `ComputeFeatures` → `ComputeFeaturesAndMoments`
+   → `ComputeFeaturesMomentsAndTopology` 로 묶음 함수 이름이 길어지고 조합이 늘고 있다.
+   **4차 배치 전에 결론을 내야 한다.** 설계만 `docs/05_USER_GUIDE.md` §6.5 에 있고 미구현이다
 
 **최난도로 남겨둔 것:** `rectangularity`(닫힌 수식 없음) · `select_shape`(63 feature 이름 체계의 근간) · `runlength_features`(LFactor 정의 모호)
 

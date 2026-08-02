@@ -821,7 +821,86 @@ ComputeFeaturesAndMoments(region, f, m);            // 1차 7값 + 2차 15값을
 정의: [`02_DEFINITIONS.md` §6~§10](02_DEFINITIONS.md) ·
 기댓값: [`03_VERIFICATION.md` §3B](03_VERIFICATION.md)
 
-### 4.9 한 번에 보기 — 실측 기준값
+### 4.9 구멍 검출 계열 4종 (2026-07-29 추가)
+
+```cpp
+void AreaHoles      (const Region&, long& area);
+void ConnectAndHoles(const Region&, long& numConnected, long& numHoles);
+void EulerNumber    (const Region&, long& eulerNumber);
+void DiameterRegion (const Region&, long& row1, long& column1,
+                     long& row2, long& column2, double& diameter);
+```
+
+| 값 | 뜻 | 검사기에서 쓰는 법 |
+|---|---|---|
+| `areaHoles` | 리전이 **둘러싼 배경**의 픽셀 수 | 코팅부 핀홀·기공의 크기 |
+| `numConnected` | 8-연결 덩어리 개수 | 한 crop 에 불량이 몇 개인지 |
+| `numHoles` | 구멍 개수 | 다공성 판정 |
+| `eulerNumber` | `numConnected - numHoles` | 위상 요약값(음수 가능) |
+| `diameter` | 최대 지름 | 불량의 **최장 길이** (`ra` 보다 직관적) |
+| `row1..column2` | 그 지름을 만드는 두 극점 | 화면에 선을 그을 때 |
+
+```cpp
+long holes = 0, area = 0;
+AreaHoles(region, area);
+
+long r1 = 0, c1 = 0, r2 = 0, c2 = 0;
+double diameter = 0.0;
+DiameterRegion(region, r1, c1, r2, c2, diameter);
+
+if (area > 0 && diameter > 30.0)
+    nDefectType = DEFECT_POROUS;        // 30픽셀 넘게 뻗은 다공성 결함
+```
+
+#### ⚠ 반드시 알아야 할 함정 4가지
+
+**1. 🔴 "오목하다" 와 "구멍이 있다" 는 다른 개념입니다.**
+L자처럼 파인 도형은 `Convexity < 1` 이지만 **`AreaHoles = 0`** 입니다.
+구멍은 **사방이 막힌** 배경만 셉니다. 파임을 잡으려면 `Convexity` 를,
+막힌 구멍을 잡으려면 `AreaHoles` 를 쓰세요.
+
+**2. 구멍 안의 전경 덩어리(섬)는 구멍 면적에 들어가지 않습니다.**
+테두리 안에 작은 덩어리가 떠 있으면 `numConnected = 2`, `numHoles = 1` 이고
+`areaHoles` 는 **섬을 뺀 배경만** 셉니다.
+
+**3. `numConnected` 는 8-연결입니다 — 대각으로만 닿아도 한 덩어리입니다.**
+`ContLength` · `SelectLargestBlob` 과 **같은 라벨링**이므로 세 값이 서로 어긋나지 않습니다.
+반대로 배경은 **4-연결**입니다(디지털 위상에서 둘은 반대여야 합니다).
+그래서 대각선으로만 닫힌 고리 안쪽은 **구멍으로 셉니다.**
+
+**4. 단일 픽셀의 `diameter` 는 `√2` 가 아니라 `0` 입니다.**
+픽셀을 무한소 점으로 보기 때문입니다(§4.8 함정 2와 같은 모델).
+`diameter == 0` 은 "픽셀이 0개 또는 1개" 라는 뜻입니다.
+
+> 최대 지름 쌍이 **동률**일 때(정사각형의 두 대각선 등) 어느 쌍을 돌려주는지는
+> HALCON 원문에 규정이 없습니다(`DR-2`). 본 구현은 사전순으로 가장 작은 쌍을 돌려줍니다.
+> **`diameter` 값 자체는 어느 쌍을 골라도 같으므로**, 임계값은 값에만 거세요.
+> 좌표는 화면 표시용으로만 쓰는 것이 안전합니다.
+>
+> 또 배경 연결성(4 vs 8)은 **미결 쟁점 `HC-1`** 입니다(HALCON 실측 대기).
+> 두께 2픽셀 이상인 실제 불량에서는 두 해석의 값이 같지만,
+> 대각선 1픽셀 구조에서는 `numHoles` 가 달라질 수 있습니다.
+
+#### 배치 API
+
+```cpp
+RegionTopology t;
+ComputeTopology(region, t);                                  // 3차 4종을 한 번에
+
+RegionFeatures f;
+RegionMoments  m;
+ComputeFeaturesMomentsAndTopology(region, f, m, t);          // 1차 7 + 2차 15 + 3차 9 (가장 쌈)
+```
+
+- `DiameterRegion` 은 `Convexity` 가 쓰는 **convex hull 을 그대로 공유**합니다.
+  둘 다 필요하면 배치 API 를 쓰는 편이 확실히 유리합니다.
+- `RegionTopology` 도 **별개 구조체**입니다. `RegionFeatures` / `RegionMoments` 의
+  레이아웃은 **바뀌지 않았습니다** — 이미 쓰고 있는 코드는 재컴파일 없이 그대로 동작합니다.
+
+정의: [`02_DEFINITIONS.md` §11~§14](02_DEFINITIONS.md) ·
+기댓값: [`03_VERIFICATION.md` §3C](03_VERIFICATION.md)
+
+### 4.10 한 번에 보기 — 실측 기준값
 
 [`examples/02_from_binary_mask.cpp`](../examples/02_from_binary_mask.cpp) 실행 결과 (MSVC 14.44 / x64 / Release):
 
