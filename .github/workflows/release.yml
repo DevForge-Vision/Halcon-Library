@@ -98,4 +98,3 @@ jobs:
           # No clobber: never silently replace assets of an existing version.
           gh release create "$RELEASE_TAG" dist/* --verify-tag --prerelease --latest=false \
             --title "GlimHalcon SDK $version" --notes-file "docs/releases/$version.md"
-

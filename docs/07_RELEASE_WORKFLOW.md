@@ -26,4 +26,3 @@ CI 기존 main push 빌드도 유지되어 있으므로 소스 push 자체가 �
 현재: 0.0.1 자동 배포 소스 준비, 실행 및 설치파일 생성 대기.
 
 참고: https://cli.github.com/manual/gh_release_create
-

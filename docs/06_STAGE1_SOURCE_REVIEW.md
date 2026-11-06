@@ -1,4 +1,4 @@
-﻿## 수정 후 상태 — 2026-11-05
+## 수정 후 상태 — 2026-11-05
 R1/R2 소스 수정 및 정적 재점검 완료. 빌드/실행 검증 대기이므로 Projects는 In Progress 유지.
 - R1: GlimHalcon.h에서 pack(push,8)/pop으로 타입 정의 자체를 보호. 호출자의 packing을 복원한다. 기존 비표준 packing으로 컴파일한 호출부는 새 헤더로 재컴파일해야 한다.
 - R2: maxSteps/잘못된 방향/고립점이 아닌 탐색 중단에서 전체 윤곽을 비우고 false 반환. FeatureContext도 실패 시 비운다. ComputeChecked의 빈 윤곽 검사로 Image API는 ProcessingFailed와 null 결과를 반환하는 경로로 연결된다.
@@ -52,4 +52,3 @@ git diff --check 통과. 점검 대상 신규 이미지/그룹화 헤더·소스
 2단계: API/ABI·예외/입력 경계 상세 점검에서 R1/R2를 우선 처리.
 Projects: https://github.com/orgs/DevForge-Vision/projects/1
 Issue: https://github.com/DevForge-Vision/Halcon-Library/issues/2
-

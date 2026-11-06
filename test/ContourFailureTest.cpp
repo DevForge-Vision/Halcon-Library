@@ -18,4 +18,3 @@ int main()
 	}
 	catch (...) { return 4; }
 }
-
