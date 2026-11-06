@@ -1,7 +1,7 @@
 #=====================================================================================
 # GlimHalcon — MVTec HALCON 13 Regions/Features 재현 라이브러리
 #
-#   GlimHalcon      : static lib (Phase 1 — 외부 의존성 0)
+#   GlimHalcon      : DLL 기본 / static 선택 (외부 의존성 0)
 #   GlimHalconTest  : 기준 도형 S1~S7 기댓값 대조 테스트 실행파일
 #
 # 빌드 예 (VS 2022 x64)
@@ -9,9 +9,9 @@
 #   cmake --build build --config Release
 #   build\Release\GlimHalconTest.exe
 #=====================================================================================
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.15)
 
-project(GlimHalcon CXX)
+project(GlimHalcon VERSION 0.0.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -30,6 +30,7 @@ endif()
 #-------------------------------------------------------------------------------------
 set(GLIM_HALCON_PUBLIC_HEADERS
 	include/GlimHalcon.h
+	include/GlimImage.h
 )
 
 set(GLIM_HALCON_SOURCES
@@ -47,19 +48,24 @@ set(GLIM_HALCON_SOURCES
 	src/Feature/FeatureContext.cpp
 	src/Facade/Operators.cpp
 	src/Facade/Inspection.cpp
+	src/Facade/ImageAnalysis.cpp
+	src/Facade/DefectGrouping.cpp
+	src/Image/ImageResultInternal.h
+	src/Image/ImageInternal.h
+	src/Image/BmpReader.cpp
+	src/Image/Segmentation.cpp
 )
 
 #-------------------------------------------------------------------------------------
-# static lib (기본) / DLL 선택
+# DLL (기본) / static lib 선택
 #
-#   기본이 static 인 이유: 사용처가 MFC 검사기다. static 이면 CRT 버전과 /MT·/MD 조합이
-#   어긋날 여지가 없고, 배포할 때 DLL 을 따라다니게 하지 않아도 된다.
+#   SDK 배포를 위해 DLL 을 기본으로 한다. static 선택 시에도 사용처와 CRT 설정을 맞춘다.
 #
 #   DLL 로 빌드하면 GLIM_HALCON_EXPORTS 가 **이 타깃에만(PRIVATE)** 붙어
 #   공개 심볼이 dllexport 된다. 사용처는 아무것도 정의하지 않는다
 #   (이유는 include/GlimHalcon.h 상단 주석 참조).
 #-------------------------------------------------------------------------------------
-option(GLIM_HALCON_BUILD_SHARED "static lib 대신 DLL 로 빌드한다" OFF)
+option(GLIM_HALCON_BUILD_SHARED "static lib 대신 DLL 로 빌드한다" ON)
 
 if(GLIM_HALCON_BUILD_SHARED)
 	add_library(GlimHalcon SHARED
@@ -85,6 +91,7 @@ target_include_directories(GlimHalcon
 	PRIVATE
 		${CMAKE_CURRENT_SOURCE_DIR}/src/Core
 		${CMAKE_CURRENT_SOURCE_DIR}/src/Feature
+		${CMAKE_CURRENT_SOURCE_DIR}/src/Image
 )
 
 source_group("include" FILES ${GLIM_HALCON_PUBLIC_HEADERS})
@@ -108,6 +115,51 @@ target_include_directories(GlimHalconTest
 enable_testing()
 add_test(NAME GlimHalconShapes COMMAND GlimHalconTest)
 
+add_executable(GlimImageTest test/ImageTest.cpp)
+target_link_libraries(GlimImageTest PRIVATE GlimHalcon)
+add_test(NAME GlimImageContract COMMAND GlimImageTest)
+add_executable(GlimDefectTest test/DefectTest.cpp)
+target_link_libraries(GlimDefectTest PRIVATE GlimHalcon)
+add_test(NAME GlimDefectGrouping COMMAND GlimDefectTest)
+add_executable(GlimConcurrencyTest test/ConcurrencyTest.cpp)
+find_package(Threads REQUIRED)
+target_link_libraries(GlimConcurrencyTest PRIVATE GlimHalcon Threads::Threads)
+add_test(NAME GlimConcurrentReads COMMAND GlimConcurrencyTest)
+
+# Compile-only ABI checks for both header orders and caller packing modes.
+if(MSVC)
+	foreach(pack IN ITEMS 1 4 8)
+		foreach(order IN ITEMS LEGACY_FIRST IMAGE_FIRST)
+			set(abiTarget "GlimAbiPack${pack}_${order}")
+			add_library(${abiTarget} OBJECT test/AbiPackingTest.cpp)
+			target_include_directories(${abiTarget} PRIVATE include)
+			target_compile_definitions(${abiTarget} PRIVATE ABI_TEST_PACK=${pack})
+			if(order STREQUAL "IMAGE_FIRST")
+				target_compile_definitions(${abiTarget} PRIVATE ABI_IMAGE_FIRST)
+			endif()
+		endforeach()
+	endforeach()
+endif()
+add_executable(GlimContourFailureTest test/ContourFailureTest.cpp
+	src/Core/Region.cpp src/Core/Contour.cpp)
+target_include_directories(GlimContourFailureTest PRIVATE include src/Core)
+add_test(NAME GlimContourFailure COMMAND GlimContourFailureTest)
+
+if(MSVC AND GLIM_HALCON_BUILD_SHARED)
+	set(consumerConventions Gd)
+	if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+		list(APPEND consumerConventions Gz Gr)
+	else()
+		list(APPEND consumerConventions Gv)
+	endif()
+	foreach(convention IN LISTS consumerConventions)
+		add_executable(GlimConsumer_${convention} test/DllConsumerTest.cpp)
+		target_compile_options(GlimConsumer_${convention} PRIVATE /${convention})
+		target_link_libraries(GlimConsumer_${convention} PRIVATE GlimHalcon)
+		add_test(NAME GlimConsumer_${convention} COMMAND GlimConsumer_${convention})
+	endforeach()
+endif()
+
 #-------------------------------------------------------------------------------------
 # 예제 (docs/05_USER_GUIDE.md 에서 참조)
 #   외부 의존성 0. 공개 헤더 하나만 include 한다.
@@ -122,6 +174,7 @@ if(GLIM_HALCON_BUILD_EXAMPLES)
 		03_from_runs
 		04_batch_features
 		05_largest_blob
+		06_image_blobs
 	)
 
 	foreach(example ${GLIM_HALCON_EXAMPLES})
@@ -139,3 +192,10 @@ if(GLIM_HALCON_BUILD_EXAMPLES)
 	# 최대 blob 선택·입력 검증이 기대와 다르면 exit code 1 을 돌려준다.
 	add_test(NAME GlimHalconLargestBlob COMMAND 05_largest_blob)
 endif()
+
+# Packaging is opt-in and never invoked automatically by this source change.
+option(GLIM_HALCON_BUILD_MFC_DEMO "Build the optional Windows MFC SDK consumer" OFF)
+if(GLIM_HALCON_BUILD_MFC_DEMO)
+	add_subdirectory(apps/MfcDemo)
+endif()
+include(cmake/Packaging.cmake)

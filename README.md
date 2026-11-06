@@ -1,4 +1,206 @@
-﻿<div align="center">
+﻿> 2026-11-05: DLL/MFC 실행 검증 현황은 [실행 보고서](docs/10_EXECUTION_VERIFICATION.md)를 참고하세요. SDK 0.0.1 시험 배포이며 HALCON 실측·생산 승인과 구분합니다.
+
+## 0.0.1 자동 배포 준비
+
+GitHub Actions의 Windows SDK Release가 버전 태그를 기준으로 x64/x86 설치 EXE와 ZIP, SHA256 파일을 GitHub Pre-release에 게시하도록 구성했습니다. 현재는 소스 준비 상태이며 실행·설치파일 생성은 하지 않았습니다.
+
+배포 절차: [Release workflow](docs/07_RELEASE_WORKFLOW.md) · [0.0.1 릴리스 노트](docs/releases/0.0.1.md)
+
+## 결함 조각 그룹화 추가 — 2026-11-05
+
+`GroupBlobDefects()`로 이미지 분석 결과의 Blob들을 결함 단위로 묶습니다.
+기존 ImageSettings/BlobFeatures 레이아웃과 Blob API는 변경하지 않았습니다.
+새 DefectResult는 독립 스냅샷이므로 생성 후 ImageResult를 해제해도 사용할 수 있습니다.
+결과 읽기와 해제를 동시에 하지 마세요. 각 결과는 해당 Release 함수로 해제합니다.
+
+```cpp
+DefectGroupingSettings grouping = {};
+GetDefaultDefectGroupingSettings(&grouping, sizeof(grouping));
+grouping.axisAngleDegrees = 90; // 이미지에서 세로 방향
+grouping.maxAlongGap = 12;      // 투영된 픽셀 중심 사이 거리
+grouping.maxAcrossOffset = 4;   // 그룹 구성원 무게중심의 횡방향 범위
+grouping.maxGroupLength = 0;    // 0: 그룹 길이 제한 없음
+DefectResult* defects = nullptr;
+if (GroupBlobDefects(imageResult, &grouping, &defects) == ImageStatus::Ok)
+{
+	int count = 0;
+	GetDefectCount(defects, &count);
+	for (int i = 0; i < count; ++i)
+	{
+		DefectFeatures feature = {};
+		if (GetDefectFeatures(defects, i, &feature, sizeof(feature)) == ImageStatus::Ok)
+		{
+			// feature.memberCount, feature.shape.area, feature.moments.ra ...
+		}
+	}
+}
+ReleaseDefectResult(defects);
+```
+
+그룹화 규약:
+
+- 방향은 자동 추정하지 않고 설정한 공통 축을 사용합니다. 0도=오른쪽, 90도=아래쪽, 범위 [0,180).
+  Blob 자체의 주축 각도 유사도 검사는 하지 않습니다. 폭넓거나 가로로 퍼진 조각도 위치 조건으로 묶일 수 있습니다.
+- 실제 런 끝점들을 축에 투영해 구간을 만들고, 두 구간 간 거리와 횡방향 무게중심 차이를 비교합니다.
+  거리는 픽셀 중심 기준: y=2에서 끝나고 y=5에서 시작하면 gap=3입니다. 빈 행 수 2와 다릅니다.
+- 후보 간격→횡방향 차이→원본 Blob 번호 순으로 정렬한 뒤 병합합니다. 경계값은 포함합니다.
+  연쇄 병합은 허용하되 그룹 전체 횡방향 무게중심 범위가 maxAcrossOffset을 넘지 않게 합니다.
+- maxGroupLength는 병합 후 축 투영 길이를 제한합니다. 이미 긴 단일 Blob을 제거하거나 자르지 않습니다.
+  제한이 있을 때 병합은 결정적인 탐욕 방식이며 전체 최적 그룹화를 보장하지 않습니다.
+- 특징값은 실제 조각 픽셀 합집합에서 기존 코어로 다시 계산합니다. 연결선·팽창 픽셀을 추가하지 않습니다.
+  면적은 원본 면적 합, 모멘트는 합집합 중심 기준, 밝기는 면적 가중 평균과 그룹 전체 모집단 편차입니다.
+  numConnected는 1로 강제하지 않고 구성 조각 수를 유지합니다. 외접 범위는 빈 틈을 포함할 수 있습니다.
+- 그룹/구성원은 원본 Blob 스캔 순서입니다. 미병합 Blob도 구성원 1개의 결함으로 반환합니다.
+  GetDefectMemberBlobIndex로 원본 Blob 번호를 조회하고 CopyDefectMask로 원본 크기 합집합 마스크를 얻습니다.
+- ImageSettings의 minArea/maxArea로 이미 제거된 조각은 복구되지 않습니다. 작은 조각을 묶으려면
+  분석 단계 minArea를 낮추고, 그룹화 후 결함 면적을 기준으로 호출부에서 필터링하세요.
+- O(N²) 후보 검사, 입력 최대 4096 Blob·후보 최대 1,000,000쌍입니다. 초과 시 ResourceLimit,
+  출력 핸들 null이며 부분 결과는 제공하지 않습니다. 기본 임계값은 현장 검증된 값이 아닙니다.
+
+검증: C++ 회귀 테스트 `test/DefectTest.cpp` 작성. 합집합 면적/모멘트/밝기, 미채움 마스크,
+원본 해제 후 수명, 간격 경계, 길이 제한, 옆방향 연쇄 병합 방지, 오류·빈 결과를 포함합니다.
+**빌드 및 C++ 테스트는 미실행**입니다. 실제 흠집 분리 정확도와 오병합률은 추가 검증이 필요합니다.
+
+---
+
+# DLL 이미지 분석 SDK — 2026-11-05 작업 상태
+
+원본 BMP 또는 이미지 버퍼를 받아 **Blob별 특징값**을 반환하는 API를 추가했습니다.
+**소스 구현 및 패키징 설정 단계이며, 빌드·C++ 테스트·설치 실행은 하지 않았습니다.**
+아래 기존 문서의 실측 통과 기록은 과거 단위테스트 기록입니다. HALCON 실물 대조는 미실시입니다.
+
+| 단계 | 상태 |
+|---|---|
+| 1. DLL API·결과 수명·오류 규약 | 구현, 미빌드 |
+| 2. BMP/메모리 영상 입력 | 구현, 미실행 |
+| 3. ROI·고정/국소평균 임계값·8-연결 Blob | 구현, 미실행 |
+| 4. Blob별 기존 14종 계산 + 밝기 통계 | 연결 구현, 수치 검증 대기 |
+| 5. 회귀 테스트·사용 예제 | 코드 작성, 실행 대기 |
+| 6. 설치형 EXE / ZIP | CPack·NSIS 설정 작성, 생성·설치 검증 대기 |
+| 7. 결함 조각 그룹화 | 소스 구현, 미빌드·미실행 |
+| 8. 현장 튜닝 | 후속 단계 |
+
+## 입력과 출력 규약 (API v1)
+
+공개 헤더 `GlimImage.h`, 라이브러리 이름 `GlimHalcon.dll` / `GlimHalcon.lib`를 사용합니다.
+기존 `GlimHalcon.h` API는 유지합니다. 새 API는 HALCON 오퍼레이터 호환 API가 아닌 자체 영상 처리 API입니다.
+
+- 메모리 입력: Gray8, BGR24, BGRA32. 양수 stride, 위에서 아래 방향. 알파 무시.
+- 파일 입력: BMP BI_RGB, DIB 헤더 40/108/124바이트, 8-bit 팔레트·24-bit·32-bit.
+  상향/하향 저장, 행 패딩, 색상 팔레트를 처리합니다. 16-bit·압축·bitfields·JPG는 현재 파일 API에서 거부합니다.
+- 색상→밝기: `(29*B + 150*G + 77*R + 128) >> 8`. 색 관리나 감마 보정은 하지 않습니다.
+- `const char*` 경로는 Windows 현재 ANSI 코드페이지를 사용합니다. 이미지 포인터는 호출 동안 유효해야 합니다.
+- 고정 임계값: Bright는 `gray > threshold`, Dark는 `gray < threshold`입니다.
+- 국소평균: ROI 안에서 잘린 `(2*radius+1)` 박스의 평균을 구합니다.
+  Bright는 `gray > mean + threshold`, Dark는 `gray < mean - threshold`입니다.
+  Python 실험의 Gaussian/MAD/closing과는 별도 알고리즘이며 같은 결과를 보장하지 않습니다.
+- NonZeroMask: Gray8 이진 마스크 연동용입니다. 0이 아닌 값을 전경으로 취급합니다.
+- ROI width/height 모두 0이면 전체 영상이며 이때 x/y는 0이어야 합니다.
+- 8-연결 Blob을 스캔 순서로 반환합니다. minArea/maxArea는 경계를 포함합니다.
+  최대 Blob만 선택하거나 조각을 자동 병합하지 않습니다. 특징값은 원본 영상 좌표입니다.
+- 밝기 평균·모집단 표준편차는 검출된 픽셀의 원본 회색조 값입니다. 주변 배경 대비는 아직 별도 출력하지 않습니다.
+- 성공 시 Blob 0개도 유효한 결과 핸들을 반환합니다. 오류 시 핸들은 null입니다.
+  `maxBlobs` 초과는 ResourceLimit으로 전체 실패하며 부분 결과를 반환하지 않습니다.
+- 입력 최대 16,777,216픽셀, 최대 1,000,000런, maxBlobs 설정 최대 100,000입니다.
+  큰 영상은 메모리/속도 검증 후 확장해야 합니다. 8-연결성·반환 형상 규약은 기존 코어를 따릅니다.
+- `CopyBlobMask`는 선택 Blob만 255인 원본 크기 마스크를 복사합니다. 출력 행 패딩은 보존합니다.
+- 결과는 `ReleaseImageResult`로만 해제합니다. DLL 경계를 넘어 STL/MFC 객체를 전달하지 않습니다.
+  다른 스레드에서 독립 호출 가능하며 동일 결과의 읽기와 해제를 동시에 하면 안 됩니다.
+- API 구조체 크기와 apiVersion을 검사합니다. 동일 아키텍처·툴셋·기본 packing 8로 빌드한 헤더/LIB/DLL을 함께 배포하세요.
+  기존 `GlimHalcon.h`를 비표준 packing 상태에서 먼저 include하지 마세요.
+  ABI 변경 시 새 버전의 API/구조체를 추가해야 하며 DLL만 임의 교체하지 않습니다.
+
+## C++ / MFC에서 사용
+
+```cpp
+#include "GlimImage.h"
+using namespace glim::halcon;
+
+ImageSettings settings = {};
+GetDefaultImageSettings(&settings, sizeof(settings));
+settings.thresholdMode = ThresholdMode::LocalMean;
+settings.threshold = 10; // 초기값이며 현장 검증된 설정이 아닙니다.
+settings.minArea = 12;
+ImageResult* result = nullptr;
+ImageStatus status = AnalyzeBmpFile("C:\\Images\\sample.bmp", &settings, &result);
+if (status == ImageStatus::Ok)
+{
+	int count = 0;
+	GetBlobCount(result, &count);
+	for (int index = 0; index < count; ++index)
+	{
+		BlobFeatures blob = {};
+		if (GetBlobFeatures(result, index, &blob, sizeof(blob)) == ImageStatus::Ok)
+		{
+			// blob.shape.area, blob.shape.circularity, blob.moments.ra ...
+		}
+	}
+}
+ReleaseImageResult(result);
+```
+
+예외가 발생할 수 있는 호출부에서는 `examples/06_image_blobs.cpp`의 RAII 방식으로 결과 수명을 관리하세요.
+카메라/OpenCV 버퍼는 ImageView의 data/dataBytes/strideBytes/format으로 전달합니다.
+DLL 내부에서 입력을 복사하므로 호출 종료 후 원본 버퍼를 재사용할 수 있습니다.
+C++14를 유지하여 VS2015(v140)를 고려했고 VS2022(v143) 구성도 제공합니다.
+C++15라는 표준은 없으며, 어느 툴셋도 이번 작업에서 빌드 검증하지 않았습니다.
+
+## 설치형 EXE와 ZIP 준비
+
+설치 파일을 실행하면 안내 화면과 설치 폴더 선택을 거쳐 SDK 파일이 설치되는 구성입니다.
+게임과 같은 다운로드 서비스 자체는 아니며, 생성한 EXE/ZIP을 GitHub Release 등에 게시하면
+사용자가 파일 하나를 다운로드할 수 있습니다. 현재 게시·업로드·릴리스는 하지 않았습니다.
+
+예상 설치 폴더(Release, x64, v143 DLL):
+
+```text
+GlimHalconSDK/0.0.1/x64-v143/
+  include/GlimHalcon.h
+  include/GlimImage.h
+  lib/x64/v143/shared/Release/GlimHalcon.lib
+  bin/x64/v143/shared/Release/GlimHalcon.dll
+  bin/x64/v143/shared/Release/<MSVC release runtime DLLs>
+  examples/06_image_blobs.cpp
+  README.md
+```
+
+x86/x64와 툴셋별 설치 경로·등록 키를 분리합니다. 시스템 PATH는 변경하지 않습니다.
+Debug 파일은 GlimHalcond 이름으로 분리합니다. 배포 패키지는 Release만 허용합니다.
+MSVC Release 런타임은 CMake InstallRequiredSystemLibraries로 DLL 옆에 포함합니다.
+검사기에 배포할 때는 해당 bin 폴더의 DLL들을 검사 EXE 옆에 함께 복사하세요.
+설치만으로 임의 위치의 검사 EXE가 DLL을 자동 탐색하지는 않습니다.
+
+다음 명령은 **소유자가 빌드를 허용한 뒤 직접 실행할 절차**이며 이번 작업에서는 실행하지 않았습니다.
+CMake 3.15 이상, 해당 Visual Studio C++ 툴셋, 설치 EXE 생성에는 NSIS가 필요합니다.
+
+```powershell
+# 1. 구성 (VS2022 x64)
+cmake -S . -B build-v143-x64 -G "Visual Studio 17 2022" -A x64 -DGLIM_HALCON_BUILD_SHARED=ON -DGLIM_HALCON_ENABLE_PACKAGING=ON
+# 2. 빌드 및 회귀 테스트
+cmake --build build-v143-x64 --config Release
+ctest --test-dir build-v143-x64 -C Release --output-on-failure
+# 3. 설치 EXE 및 ZIP 생성
+cpack --config build-v143-x64/CPackConfig.cmake -C Release -G NSIS
+cpack --config build-v143-x64/CPackConfig.cmake -C Release -G ZIP
+```
+
+VS2022 x86은 `-A Win32`, VS2015는 해당 생성기와 호환되는 CMake 버전에서
+`-G "Visual Studio 14 2015" -A Win32` 또는 `-A x64`를 사용합니다.
+정적 LIB는 `-DGLIM_HALCON_BUILD_SHARED=OFF`로 선택할 수 있으나 설치 EXE 패키징은 DLL 전용입니다.
+정적 LIB도 호출부와 CRT(/MD, /MT), Debug/Release 설정을 맞춰야 합니다.
+
+## 검증 경계와 다음 단계
+
+`test/ImageTest.cpp`에 다중 Blob, 면적·중심·밝기 기댓값, ROI 전역 좌표,
+패딩·짧은 버퍼·버전 오류·Blob 제한·정상 빈 결과·어두운 후보·BMP 팔레트/행 방향/잘린 파일 테스트를 추가했습니다.
+**작성된 C++ 테스트는 미실행**입니다. 기존 HALCON 수치 규약의 미결 사항은 그대로 남습니다.
+10장 JPG의 과거 Python 실험을 이 C++ 구현의 정확도 증거로 사용하지 않습니다.
+소유자 빌드 후 테스트, 실제 BMP 비교, 정상 영상 오검출 평가, 설치/삭제 및 깨끗한 PC 런타임 확인,
+DLL 배포 호환성 확인을 거쳐야 배포 검증 완료로 표시할 수 있습니다.
+
+---
+
+<div align="center">
 
 # Halcon-Library
 
@@ -26,7 +228,7 @@ HALCON 런타임 라이선스 없이 **HALCON 과 같은 수치로** 얻게 해�
 | | |
 |---|---|
 | 배포 형태 | **static lib** (`GlimHalcon.lib`) 또는 **DLL** (`GlimHalcon.dll` + import lib) |
-| 공개 면적 | 헤더 **1개** — `include/GlimHalcon.h` |
+| 공개 면적 | 기존 코어 `include/GlimHalcon.h` + 영상 API `include/GlimImage.h` |
 | 의존성 | **없음.** 표준 라이브러리만 씁니다. OpenCV·Halcon 을 링크하지 않습니다 |
 | 표준 / 문자셋 | C++14 / **멀티바이트**(`_MBCS`). 유니코드 매크로를 켜지 않습니다 |
 | 스레드 | 오퍼레이터는 **무상태 순수 함수**. `Region` 을 스레드마다 따로 만들면 락 없이 병렬 호출 가능 |
@@ -40,8 +242,8 @@ HALCON 런타임 라이선스 없이 **HALCON 과 같은 수치로** 얻게 해�
 
 ### 1-1. static lib 로 링크 (권장)
 
-DLL 보다 이쪽을 권장합니다. **CRT 버전·`/MT`·`/MD` 불일치 문제가 원천적으로 없고**,
-배포 시 DLL 을 따라다니게 할 필요가 없습니다.
+정적 LIB는 `GLIM_HALCON_BUILD_SHARED=OFF`로 선택합니다. 배포 시 DLL은 필요 없지만,
+사용처와 CRT 버전·`/MT`·`/MD`·Debug/Release 설정을 맞춰야 합니다.
 
 **① 빌드해서 산출물 얻기**
 
@@ -87,7 +289,7 @@ build\Release\GlimHalcon.dll      ← 실행 파일 옆에 복사
 build\Release\GlimHalcon.lib      ← import lib. 링커 ▸ 입력에 추가
 ```
 
-사용처에서는 **아무것도 정의하지 않습니다.** 헤더가 알아서 `dllimport` 로 동작합니다.
+사용처에서는 **아무것도 정의하지 않습니다.** 공개 헤더는 사용처에 `dllimport`를 지정하지 않으며 import LIB를 통해 연결합니다.
 
 > **DLL 을 쓸 때 지켜야 할 것**
 > 공개 헤더에 `std::` 타입이 하나도 없고, `Region` 의 생성·복사·소멸이 전부 DLL 안에서
@@ -395,7 +597,7 @@ HALCON 규약을 그대로 따릅니다. 예외를 공개 API 밖으로 던지�
 ### ⚠ `Anisometry` 는 1픽셀 두께 리전에서 `0` 입니다
 
 픽셀을 면적 1의 사각형이 아니라 **무한소 점**으로 보기 때문에 `Rb = 0` 이 되고,
-`Anisometry = Ra/Rb` 가 정의될 수 없어 `0` 이 됩니다. **HALCON 실제 동작을 재현한 것입니다.**
+`Anisometry = Ra/Rb` 가 정의될 수 없어 `0` 이 됩니다. **HALCON 규약을 재현하려는 구현이며, HALCON 실물 대조는 아직 수행하지 않았습니다.**
 
 ```cpp
 if (m.anisometry > 5.0)  nType = SCRATCH;   // ✗ 가장 길쭉한 1px 스크래치를 놓칩니다
