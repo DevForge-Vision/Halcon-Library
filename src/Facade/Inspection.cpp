@@ -57,7 +57,7 @@ void ClearFeatures(RegionFeatures& features)
 //   성분이 이미 하나뿐이면 결과는 입력과 **픽셀 단위로 동일**하다
 //   (같은 런을 그대로 다시 담을 뿐이다). 즉 단일 blob 마스크에서는 특징값이 변하지 않는다.
 //------------------------------------------------------------------------------------
-Region SelectLargestBlob(const Region& region)
+Region GLIM_HALCON_CALL SelectLargestBlob(const Region& region)
 {
 	Region result;
 
@@ -128,7 +128,7 @@ Region SelectLargestBlob(const Region& region)
 //
 // 반환값이 bool 인 이유는 함수 선언부 주석(include/GlimHalcon.h) 참조.
 //------------------------------------------------------------------------------------
-bool ComputeLargestBlobFeatures(const unsigned char* data,
+bool GLIM_HALCON_CALL ComputeLargestBlobFeatures(const unsigned char* data,
 								int width, int height, int stride,
 								RegionFeatures& features)
 {

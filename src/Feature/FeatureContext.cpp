@@ -79,7 +79,8 @@ void FeatureContext::EnsureContours() const
 	if (IsEmpty())
 		return;
 
-	TraceOuterContours(*m_pRegion, m_contours);
+	if (!TraceOuterContours(*m_pRegion, m_contours))
+		m_contours.m_contours.clear();
 }
 
 //------------------------------------------------------------------------------------

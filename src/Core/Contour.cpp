@@ -280,7 +280,7 @@ bool LabelConnectedRuns(const std::vector<Run>& runs,
 //------------------------------------------------------------------------------------
 // 외곽 윤곽 추적
 //------------------------------------------------------------------------------------
-bool TraceOuterContours(const RegionData& region, ContourSet& out)
+bool TraceOuterContours(const RegionData& region, ContourSet& out, long long stepLimit)
 {
 	out.m_contours.clear();
 
@@ -334,12 +334,18 @@ bool TraceOuterContours(const RegionData& region, ContourSet& out)
 
 			while (true)
 			{
-				if (++stepGuard > maxSteps)
-					break;	// 방어: 정상 입력에서는 도달하지 않는다
+				if (++stepGuard > maxSteps || (stepLimit > 0 && stepGuard > stepLimit))
+				{
+					out.m_contours.clear();
+					return false;
+				}
 
 				const int startDir = DirIndexOf(back.row - p.row, back.col - p.col);
 				if (startDir < 0)
-					break;	// 방어
+				{
+					out.m_contours.clear();
+					return false;
+				}
 
 				Point next(0, 0);
 				Point newBack(0, 0);
@@ -367,6 +373,11 @@ bool TraceOuterContours(const RegionData& region, ContourSet& out)
 
 				if (!found)
 				{
+					if (hasSecond || pixelsOfLabel[static_cast<std::size_t>(label)] != 1)
+					{
+						out.m_contours.clear();
+						return false;
+					}
 					// 고립 픽셀: 체인 스텝이 없다 → ContLength = 0 (C-1 확정 결과)
 					contour.clear();
 					contour.push_back(start);

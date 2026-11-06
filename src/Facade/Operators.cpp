@@ -10,6 +10,7 @@
 //   - 빈 리전 / 0 나눗셈은 전부 0 (docs/02_DEFINITIONS.md §0.4).
 //====================================================================================
 #include "GlimHalcon.h"
+#include "ImageInternal.h"
 
 #include "Region.h"
 #include "FeatureContext.h"
@@ -409,7 +410,7 @@ void FillTopology(const core::FeatureContext& context, RegionTopology& topology)
 //
 //   런렝스 누적으로 O(런 수). 열 좌표 합은 등차수열 합으로 상수시간 처리한다.
 //------------------------------------------------------------------------------------
-void AreaCenter(const Region& region, long& area, double& row, double& column)
+void GLIM_HALCON_CALL AreaCenter(const Region& region, long& area, double& row, double& column)
 {
 	area = 0;
 	row = 0.0;
@@ -441,7 +442,7 @@ void AreaCenter(const Region& region, long& area, double& row, double& column)
 //   - 픽셀 중심 체인(Freeman chain) 모델. 단일 픽셀 = 0.0 (C-1 확정).
 //   - 연결성분이 여러 개면 각 성분의 외곽 윤곽 길이를 합산한다.
 //------------------------------------------------------------------------------------
-void ContLength(const Region& region, double& contLength)
+void GLIM_HALCON_CALL ContLength(const Region& region, double& contLength)
 {
 	contLength = 0.0;
 
@@ -472,7 +473,7 @@ void ContLength(const Region& region, double& contLength)
 //   - 중심은 무게중심 (CI-2 확정), contour 는 외곽만 (CI-1 확정).
 //   - max == 0 (단일 픽셀) 이면 0 나눗셈 → 0 을 반환한다.
 //------------------------------------------------------------------------------------
-void Circularity(const Region& region, double& circularity)
+void GLIM_HALCON_CALL Circularity(const Region& region, double& circularity)
 {
 	circularity = 0.0;
 
@@ -504,7 +505,7 @@ void Circularity(const Region& region, double& circularity)
 //     실제 수식과 Assertion 은 max 다. 수식/Assertion 을 따른다 (정의서 §4.3).
 //   - 빈 리전은 0.
 //------------------------------------------------------------------------------------
-void Compactness(const Region& region, double& compactness)
+void GLIM_HALCON_CALL Compactness(const Region& region, double& compactness)
 {
 	compactness = 0.0;
 
@@ -533,7 +534,7 @@ void Compactness(const Region& region, double& compactness)
 //   - 분자가 원본이다. 뒤집으면 항상 >= 1 이 되어 Assertion 을 위반한다.
 //   - F_c 에 폴리곤 기하 면적(cv::contourArea)을 쓰면 정사각형에서 1.0203 이 나온다.
 //------------------------------------------------------------------------------------
-void Convexity(const Region& region, double& convexity)
+void GLIM_HALCON_CALL Convexity(const Region& region, double& convexity)
 {
 	convexity = 0.0;
 
@@ -573,7 +574,7 @@ void Convexity(const Region& region, double& convexity)
 //   - 스레드 안전: 전역/정적 가변 상태가 없다. 서로 다른 스레드가 같은 Region 을
 //     동시에 읽는 것은 안전하다 (Region 내부 데이터는 불변).
 //------------------------------------------------------------------------------------
-void ComputeFeatures(const Region& region, RegionFeatures& features)
+void GLIM_HALCON_CALL ComputeFeatures(const Region& region, RegionFeatures& features)
 {
 	ClearRegionFeatures(features);
 
@@ -615,7 +616,7 @@ void ComputeFeatures(const Region& region, RegionFeatures& features)
 //   ⚠ **정규화 없음.** 면적으로 나누면 _invar 와 elliptic_axis 가 전부 오염된다 (함정 #4/#6).
 //   ⚠ 부호 규약 (r0 - r) 은 2차에서 (r - r0) 과 값이 같다. 3차 홀수항에서만 갈린다 (함정 #5).
 //------------------------------------------------------------------------------------
-void MomentsRegion2nd(const Region& region,
+void GLIM_HALCON_CALL MomentsRegion2nd(const Region& region,
 					  double& m11, double& m20, double& m02, double& ia, double& ib)
 {
 	m11 = 0.0;
@@ -653,7 +654,7 @@ void MomentsRegion2nd(const Region& region,
 //     둘을 같은 도형에 나란히 걸면 정규화 오류가 값으로 드러난다 (검증 T-8).
 //   - 빈 리전이면 0 나눗셈을 피해 전부 0.
 //------------------------------------------------------------------------------------
-void MomentsRegion2ndInvar(const Region& region, double& m11, double& m20, double& m02)
+void GLIM_HALCON_CALL MomentsRegion2ndInvar(const Region& region, double& m11, double& m20, double& m02)
 {
 	m11 = 0.0;
 	m20 = 0.0;
@@ -689,7 +690,7 @@ void MomentsRegion2ndInvar(const Region& region, double& m11, double& m20, doubl
 //   ⚠ Phi 는 정규화 인자에 둔감하다(분자·분모가 같이 스케일된다).
 //     정규화 오류는 Ra/Rb 로만 잡힌다.
 //------------------------------------------------------------------------------------
-void EllipticAxis(const Region& region, double& ra, double& rb, double& phi)
+void GLIM_HALCON_CALL EllipticAxis(const Region& region, double& ra, double& rb, double& phi)
 {
 	ra = 0.0;
 	rb = 0.0;
@@ -724,7 +725,7 @@ void EllipticAxis(const Region& region, double& ra, double& rb, double& phi)
 //     Assertion 쪽을 따라 1.0 을 넣으면 1픽셀 두께 스크래치가 원으로 판정된다.
 //     여기서는 **실제 동작(0)** 을 재현한다 (정의서 §0.4 / §9.3).
 //------------------------------------------------------------------------------------
-void Eccentricity(const Region& region,
+void GLIM_HALCON_CALL Eccentricity(const Region& region,
 				  double& anisometry, double& bulkiness, double& structureFactor)
 {
 	anisometry = 0.0;
@@ -759,7 +760,7 @@ void Eccentricity(const Region& region,
 //   ⚠ 대칭 도형은 최원점이 동률이라 결과가 Phi 또는 Phi±pi 중 하나로 갈린다.
 //     원문에 규정이 없으므로 어느 쪽도 오답이 아니다 (OR-3).
 //------------------------------------------------------------------------------------
-void OrientationRegion(const Region& region, double& phi)
+void GLIM_HALCON_CALL OrientationRegion(const Region& region, double& phi)
 {
 	phi = 0.0;
 
@@ -784,7 +785,7 @@ void OrientationRegion(const Region& region, double& phi)
 // 값은 개별 오퍼레이터와 **완전히 동일**하다. 같은 헬퍼를 호출하기 때문이며,
 // 계산식을 두 벌로 복제하지 않았으므로 두 경로가 어긋날 여지가 구조적으로 없다.
 //------------------------------------------------------------------------------------
-void ComputeMoments(const Region& region, RegionMoments& moments)
+void GLIM_HALCON_CALL ComputeMoments(const Region& region, RegionMoments& moments)
 {
 	ClearRegionMoments(moments);
 
@@ -811,7 +812,7 @@ void ComputeMoments(const Region& region, RegionMoments& moments)
 //
 // 값은 어느 경로로 불러도 동일하다.
 //------------------------------------------------------------------------------------
-void ComputeFeaturesAndMoments(const Region& region,
+void GLIM_HALCON_CALL ComputeFeaturesAndMoments(const Region& region,
 							   RegionFeatures& features,
 							   RegionMoments& moments)
 {
@@ -859,7 +860,7 @@ void ComputeFeaturesAndMoments(const Region& region,
 //   - "오목함" 과 "구멍" 은 다른 개념이다. L자 도형은 Convexity < 1 이지만 Area = 0 이다.
 //   - 빈 리전은 0.
 //------------------------------------------------------------------------------------
-void AreaHoles(const Region& region, long& area)
+void GLIM_HALCON_CALL AreaHoles(const Region& region, long& area)
 {
 	area = 0;
 
@@ -889,7 +890,7 @@ void AreaHoles(const Region& region, long& area)
 //     여기만 4-연결로 바꾸면 같은 리전에서 성분 수가 서로 어긋난다 (HC-2).
 //   - 빈 리전은 둘 다 0.
 //------------------------------------------------------------------------------------
-void ConnectAndHoles(const Region& region, long& numConnected, long& numHoles)
+void GLIM_HALCON_CALL ConnectAndHoles(const Region& region, long& numConnected, long& numHoles)
 {
 	numConnected = 0;
 	numHoles = 0;
@@ -921,7 +922,7 @@ void ConnectAndHoles(const Region& region, long& numConnected, long& numHoles)
 //   - 구멍이 성분보다 많으면 음수다 (구멍 2개 · 성분 1개 -> -1).
 //   - 빈 리전은 0 - 0 = 0.
 //------------------------------------------------------------------------------------
-void EulerNumber(const Region& region, long& eulerNumber)
+void GLIM_HALCON_CALL EulerNumber(const Region& region, long& eulerNumber)
 {
 	eulerNumber = 0;
 
@@ -952,7 +953,7 @@ void EulerNumber(const Region& region, long& eulerNumber)
 //   - 빈 리전은 네 좌표와 Diameter 가 전부 0 이다. **원문이 명시한 동작**이며
 //     "혼동을 줄 수 있다" 는 경고까지 붙어 있다.
 //------------------------------------------------------------------------------------
-void DiameterRegion(const Region& region,
+void GLIM_HALCON_CALL DiameterRegion(const Region& region,
 					long& row1, long& column1, long& row2, long& column2,
 					double& diameter)
 {
@@ -987,7 +988,7 @@ void DiameterRegion(const Region& region,
 // 값은 개별 오퍼레이터와 **완전히 동일**하다. 같은 헬퍼를 호출하기 때문이며,
 // 계산식을 두 벌로 복제하지 않았으므로 두 경로가 어긋날 여지가 구조적으로 없다.
 //------------------------------------------------------------------------------------
-void ComputeTopology(const Region& region, RegionTopology& topology)
+void GLIM_HALCON_CALL ComputeTopology(const Region& region, RegionTopology& topology)
 {
 	ClearRegionTopology(topology);
 
@@ -1014,7 +1015,7 @@ void ComputeTopology(const Region& region, RegionTopology& topology)
 //
 // 값은 어느 경로로 불러도 동일하다.
 //------------------------------------------------------------------------------------
-void ComputeFeaturesMomentsAndTopology(const Region& region,
+void GLIM_HALCON_CALL ComputeFeaturesMomentsAndTopology(const Region& region,
 									   RegionFeatures& features,
 									   RegionMoments& moments,
 									   RegionTopology& topology)
@@ -1041,6 +1042,23 @@ void ComputeFeaturesMomentsAndTopology(const Region& region,
 		ClearRegionMoments(moments);
 		ClearRegionTopology(topology);
 	}
+}
+
+namespace image {
+// Internal checked entry: reuse the same formulas without the legacy void API's
+// exception-to-zero conversion. Exceptions are caught at the new DLL boundary.
+bool ComputeChecked(const core::RegionData& data, BlobFeatures& output, int expectedComponents)
+{
+	if (data.IsEmpty()) return false;
+	core::FeatureContext context(&data);
+	if (context.GetContours().IsEmpty() || context.GetConvexHullVertices().empty() ||
+		context.GetConvexHullArea() <= 0) return false;
+	FillFeatures(context, output.shape);
+	FillMoments(context, output.moments);
+	FillTopology(context, output.topology);
+	return output.shape.area == data.GetArea() && output.shape.area > 0 &&
+		output.topology.numConnected == expectedComponents;
+}
 }
 
 }}	// namespace glim::halcon

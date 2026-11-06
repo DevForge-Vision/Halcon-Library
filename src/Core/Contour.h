@@ -67,7 +67,8 @@ bool LabelConnectedRuns(const std::vector<Run>& runs,
 						std::vector<long long>& pixelsOfLabel);
 
 // 외곽 윤곽 추적. 성공 시 true. (빈 리전이면 false, out 은 비워진다)
-bool TraceOuterContours(const RegionData& region, ContourSet& out);
+// Internal work budget: zero uses the automatic per-component guard.
+bool TraceOuterContours(const RegionData& region, ContourSet& out, long long stepLimit = 0);
 
 // HALCON: contlength — 축평행 스텝 1, 대각 스텝 √2 의 합 (닫힌 경로)
 double ComputeContourLength(const ContourSet& contours);
