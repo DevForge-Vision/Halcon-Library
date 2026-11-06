@@ -175,6 +175,7 @@ if(GLIM_HALCON_BUILD_EXAMPLES)
 		04_batch_features
 		05_largest_blob
 		06_image_blobs
+		07_api_contract
 	)
 
 	foreach(example ${GLIM_HALCON_EXAMPLES})
@@ -191,6 +192,7 @@ if(GLIM_HALCON_BUILD_EXAMPLES)
 	# 원샷 API 결과가 FromMask+SelectLargestBlob+ComputeFeatures 수동 조합과 어긋나거나,
 	# 최대 blob 선택·입력 검증이 기대와 다르면 exit code 1 을 돌려준다.
 	add_test(NAME GlimHalconLargestBlob COMMAND 05_largest_blob)
+	add_test(NAME GlimApiDocumentExample COMMAND 07_api_contract)
 endif()
 
 # Packaging is opt-in and never invoked automatically by this source change.

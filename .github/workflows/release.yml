@@ -4,6 +4,16 @@ on:
   push:
     tags: ['v[0-9]*']
   workflow_dispatch:
+    inputs:
+      toolset:
+        description: 'Installed MSVC toolset (manual run creates artifacts only)'
+        type: choice
+        default: v143
+        options: [v142, v143]
+      mfc_demo:
+        description: 'Include MFC demo (requires MFC for selected toolset on runner)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -44,7 +54,10 @@ jobs:
           if (!(Test-Path "$nsis/makensis.exe")) { throw 'NSIS not found' }
           $nsis | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
       - name: Configure
-        run: cmake -S . -B build -G "Visual Studio 17 2022" -A ${{ matrix.arch }} -T v143 -DGLIM_HALCON_BUILD_SHARED=ON -DGLIM_HALCON_ENABLE_PACKAGING=ON -DGLIM_HALCON_BUILD_MFC_DEMO=ON
+        env:
+          SDK_TOOLSET: ${{ inputs.toolset || 'v143' }}
+          SDK_MFC: ${{ github.event_name == 'push' || inputs.mfc_demo }}
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A ${{ matrix.arch }} -T $env:SDK_TOOLSET -DGLIM_HALCON_BUILD_SHARED=ON -DGLIM_HALCON_ENABLE_PACKAGING=ON -DGLIM_HALCON_BUILD_MFC_DEMO=$env:SDK_MFC
       - name: Build
         run: cmake --build build --config Release --parallel
       - name: Regression tests
@@ -61,7 +74,7 @@ jobs:
           $lines | Set-Content "dist/SHA256SUMS-${{ matrix.arch }}.txt" -Encoding ascii
       - uses: actions/upload-artifact@v4
         with:
-          name: sdk-${{ matrix.arch }}
+          name: sdk-${{ inputs.toolset || 'v143' }}-${{ matrix.arch }}
           path: |
             dist/*.exe
             dist/*.zip
