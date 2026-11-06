@@ -3,17 +3,18 @@ name: Windows SDK Release
 on:
   push:
     tags: ['v[0-9]*']
+    branches: [main]
   workflow_dispatch:
     inputs:
       toolset:
         description: 'Installed MSVC toolset (manual run creates artifacts only)'
         type: choice
-        default: v143
-        options: [v142, v143]
+        default: all
+        options: [all, v140, v141, v142, v143]
       mfc_demo:
         description: 'Include MFC demo (requires MFC for selected toolset on runner)'
         type: boolean
-        default: false
+        default: true
 
 permissions:
   contents: read
@@ -25,11 +26,12 @@ concurrency:
 jobs:
   package:
     runs-on: windows-2022
-    timeout-minutes: 30
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         arch: [x64, Win32]
+        toolset: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.toolset != 'all' && format('["{0}"]', inputs.toolset) || '["v140","v141","v142","v143"]') }}
     defaults:
       run:
         shell: pwsh
@@ -44,6 +46,8 @@ jobs:
           $version = $Matches[1]
           if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$version") { throw 'Tag and CMake version differ' }
           if (!(Test-Path "docs/releases/$version.md")) { throw 'Missing release notes' }
+      - name: Install selected compiler and MFC components
+        run: ./scripts/Install-BuildComponents.ps1 -Toolset ${{ matrix.toolset }}
       - name: Locate NSIS
         run: |
           $nsis = Join-Path ${env:ProgramFiles(x86)} 'NSIS'
@@ -55,9 +59,9 @@ jobs:
           $nsis | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
       - name: Configure
         env:
-          SDK_TOOLSET: ${{ inputs.toolset || 'v143' }}
+          SDK_TOOLSET: ${{ matrix.toolset }}
           SDK_MFC: ${{ github.event_name == 'push' || inputs.mfc_demo }}
-        run: cmake -S . -B build -G "Visual Studio 17 2022" -A ${{ matrix.arch }} -T $env:SDK_TOOLSET -DGLIM_HALCON_BUILD_SHARED=ON -DGLIM_HALCON_ENABLE_PACKAGING=ON -DGLIM_HALCON_BUILD_MFC_DEMO=$env:SDK_MFC
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A ${{ matrix.arch }} -T $env:SDK_TOOLSET -DCMAKE_SYSTEM_VERSION=10.0.19041.0 -DGLIM_HALCON_BUILD_SHARED=ON -DGLIM_HALCON_ENABLE_PACKAGING=ON -DGLIM_HALCON_BUILD_MFC_DEMO=$env:SDK_MFC
       - name: Build
         run: cmake --build build --config Release --parallel
       - name: Regression tests
@@ -71,10 +75,14 @@ jobs:
           $lines = foreach ($asset in $assets) {
             "$((Get-FileHash $asset.FullName -Algorithm SHA256).Hash.ToLowerInvariant())  $($asset.Name)"
           }
-          $lines | Set-Content "dist/SHA256SUMS-${{ matrix.arch }}.txt" -Encoding ascii
+          $lines | Set-Content "dist/SHA256SUMS-${{ matrix.toolset }}-${{ matrix.arch }}.txt" -Encoding ascii
+      - name: Verify extracted SDK and MFC startup
+        env:
+          SDK_MFC: ${{ github.event_name == 'push' || inputs.mfc_demo }}
+        run: ./scripts/Test-Package.ps1 -BuildDirectory build -Toolset ${{ matrix.toolset }} -Architecture ${{ matrix.arch }} -MfcDemo:([bool]::Parse($env:SDK_MFC))
       - uses: actions/upload-artifact@v4
         with:
-          name: sdk-${{ inputs.toolset || 'v143' }}-${{ matrix.arch }}
+          name: sdk-${{ matrix.toolset }}-${{ matrix.arch }}
           path: |
             dist/*.exe
             dist/*.zip
@@ -106,7 +114,7 @@ jobs:
           set -euo pipefail
           version="${RELEASE_TAG#v}"
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
-          test "$(find dist -maxdepth 1 -type f | wc -l)" -eq 6
+          test "$(find dist -maxdepth 1 -type f | wc -l)" -eq 24
           (cd dist && sha256sum -c SHA256SUMS-*.txt)
           # No clobber: never silently replace assets of an existing version.
           gh release create "$RELEASE_TAG" dist/* --verify-tag --prerelease --latest=false \
