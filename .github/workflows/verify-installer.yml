@@ -1,0 +1,61 @@
+name: Published Installer Verification
+
+on:
+  push:
+    branches: [main, test/installer-verification]
+    paths: ['scripts/Test-Installer.ps1', '.github/workflows/verify-installer.yml']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Published release tag (existing assets only; no build)'
+        default: v0.0.2
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64, x86]
+        toolset: [v140, v141, v142, v143]
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Download existing release assets
+        env:
+          RELEASE_TAG: ${{ inputs.tag || 'v0.0.2' }}
+          ARCH: ${{ matrix.arch }}
+          TOOLSET: ${{ matrix.toolset }}
+        run: |
+          if ($env:RELEASE_TAG -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') { throw 'Invalid release tag' }
+          $version = $env:RELEASE_TAG.Substring(1)
+          $base = "https://github.com/DevForge-Vision/Halcon-Library/releases/download/$env:RELEASE_TAG"
+          $stem = "GlimHalconSDK-$version-$env:ARCH-$env:TOOLSET"
+          $manifestArch = if ($env:ARCH -eq 'x86') { 'Win32' } else { 'x64' }
+          $manifest = "SHA256SUMS-$env:TOOLSET-$manifestArch.txt"
+          foreach ($name in @("$stem.exe", "$stem.zip", $manifest)) {
+            Invoke-WebRequest "$base/$name" -OutFile $name
+          }
+          "INSTALLER=$stem.exe" >> $env:GITHUB_ENV
+          "PACKAGE_ZIP=$stem.zip" >> $env:GITHUB_ENV
+          "CHECKSUMS=$manifest" >> $env:GITHUB_ENV
+      - name: Install, compare payload, start MFC and uninstall
+        env:
+          HAS_MFC: ${{ matrix.toolset != 'v140' }}
+        run: ./scripts/Test-Installer.ps1 -Installer $env:INSTALLER -Zip $env:PACKAGE_ZIP -Checksums $env:CHECKSUMS -MfcDemo:([bool]::Parse($env:HAS_MFC))
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: installer-result-${{ matrix.toolset }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/installer-result.json
+          if-no-files-found: warn
