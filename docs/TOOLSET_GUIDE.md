@@ -1,4 +1,6 @@
-﻿# GlimHalcon SDK 툴셋 및 DLL 연동 가이드
+﻿0.0.2의 실제 v140~v143 검증 결과는 [회귀검증 보고서](12_V002_REGRESSION.md)를 참조한다.
+
+# GlimHalcon SDK 툴셋 및 DLL 연동 가이드
 
 문서 기준: 2026-11-06, 공개 이미지 API v1 / SDK 0.0.2 소스 계열.
 
@@ -42,7 +44,7 @@ cmake --build build-v142-x64 --config Release
 ctest --test-dir build-v142-x64 -C Release --output-on-failure
 ```
 
-Actions → Windows SDK Release → Run workflow에서 all/v140/v141/v142/v143 선택 가능. MFC 데모는 기본 포함이며 필요한 구성 요소를 설치한다. main push는 8개 조합 검증/패키징만 수행하고, 태그 push는 8개 조합 모두 성공한 뒤 새 Release를 게시한다. 기존 버전 자산은 덮어쓰지 않는다.
+Actions → Windows SDK Release → Run workflow에서 all/v140/v141/v142/v143 선택 가능. MFC 데모는 v141/v142/v143에 기본 포함이며 필요한 구성 요소를 설치한다. v140은 엔진 SDK 전용이며 MFC 데모를 포함하지 않는다. 수동 실행은 8개 조합 또는 선택 조합을 검증하고, 태그 push는 8개 조합 모두 성공한 뒤 새 Release를 게시한다. 기존 버전 자산은 덮어쓰지 않는다.
 
 ## MFC 프로젝트 연결
 

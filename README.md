@@ -1,4 +1,8 @@
-﻿## 공식 SDK 문서
+﻿## 0.0.2 다중 툴셋 검증
+
+v140~v143 × x64/x86의 총 84개 회귀테스트 및 ZIP DLL 실행 검증 통과. MFC 데모는 v141~v143에 포함합니다(v140은 엔진 SDK 전용). [검증 보고서](docs/12_V002_REGRESSION.md) · [0.0.2 릴리스](https://github.com/DevForge-Vision/Halcon-Library/releases/tag/v0.0.2).
+
+## 공식 SDK 문서
 
 - [API Reference — 함수, 매개변수, 결과값, C++ 예제](docs/API_REFERENCE.md)
 - [툴셋 선택 및 호환성](docs/TOOLSET_GUIDE.md)

@@ -5,18 +5,18 @@
 ## 검증 및 배포 순서
 
 1. Microsoft Visual Studio Installer로 선택 툴셋과 MFC 구성 요소를 설치한다.
-2. VS2022 generator에서 명시한 -T 툴셋, Windows SDK 10.0.19041.0으로 DLL/예제/MFC를 빌드한다.
+2. VS2022 generator에서 명시한 -T 툴셋, Windows SDK 10.0.19041.0으로 DLL/예제를 빌드한다. v141~v143은 MFC도 빌드하고 v140은 엔진 SDK 전용이다.
 3. 전체 CTest를 실행한다. pack/header-order 컴파일 검사도 빌드에 포함한다.
-4. MFC/CRT를 동봉한 NSIS EXE와 ZIP, 조합별 SHA256 목록을 생성한다.
-5. ZIP을 별도 폴더에 풀어 DLL 소비자와 API 계약 예제를 실행한다. MFC가 입력 대기 상태에 도달하는지도 확인한다.
+4. CRT와 해당 조합의 MFC 런타임을 동봉한 NSIS EXE와 ZIP, 조합별 SHA256 목록을 생성한다.
+5. ZIP을 별도 폴더에 풀어 DLL 소비자와 API 계약 예제를 실행한다. MFC 포함 6개 조합은 입력 대기 상태에 도달하는지도 확인한다.
 6. 태그 실행에서 모든 조합이 성공하면 자산24개(EXE8+ZIP8+SHA256목록8)를 새 prerelease에 게시한다.
 
-main push와 수동 실행은 Actions 아티팩트만 생성한다. 수동 실행에서는 단일 툴셋 또는 all을 선택할 수 있다. 태그 이름과 CMake 버전 불일치, 누락된 릴리스 노트, 실패한 회귀검증/패키지 검증은 배포를 차단한다. 기존 Release 자산을 덮어쓰지 않는다.
+일반 main push는 별도 CI의 Windows/Linux 회귀검증을 수행한다. 이 Release 워크플로는 태그와 수동 실행에서 실행되며 수동 실행은 Actions 아티팩트만 생성한다. 수동 실행에서는 단일 툴셋 또는 all을 선택할 수 있다. 태그 이름과 CMake 버전 불일치, 누락된 릴리스 노트, 실패한 회귀검증/패키지 검증은 배포를 차단한다. 기존 Release 자산을 덮어쓰지 않는다.
 
 ## 새 버전
 
 - CMake 버전과 docs/releases/<version>.md를 변경한다.
-- main 검증을 확인하고 해당 소스에 v<version> 태그를 push한다.
+- 수동 전체 조합 검증을 확인하고 해당 소스에 v<version> 태그를 push한다.
 - 태그 실행은 같은 검증을 다시 수행하고 성공한 산출물만 게시한다.
 - Projects에 빌드/회귀/MFC 시작/실제 이미지/설치 검증을 구분해서 기록한다.
 

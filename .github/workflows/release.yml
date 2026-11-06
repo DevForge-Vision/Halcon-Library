@@ -3,7 +3,6 @@ name: Windows SDK Release
 on:
   push:
     tags: ['v[0-9]*']
-    branches: [main]
   workflow_dispatch:
     inputs:
       toolset:
