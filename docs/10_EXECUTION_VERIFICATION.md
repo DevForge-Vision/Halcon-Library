@@ -23,6 +23,14 @@
 - build-verify-x64/dist/GlimHalconSDK-0.0.1-x64-v145.exe 및 .zip
 - ../halcon-image-study/mfc-runtime-group.png
 
+## GitHub Actions 및 배포 확인
+- Windows Server 2022 / VS2022 v143 / MSVC 19.44.35229에서 x64 CTest 9/9, Win32 CTest 10/10 통과. 두 아키텍처 MFC 데모 빌드 성공.
+- EXE/ZIP 및 아키텍처별 SHA256 목록을 v0.0.1 prerelease에 게시했다.
+- [Release Actions 성공](https://github.com/DevForge-Vision/Halcon-Library/actions/runs/42177076926)
+- [Windows/Linux CI 성공](https://github.com/DevForge-Vision/Halcon-Library/actions/runs/42177074305)
+- [v0.0.1 다운로드](https://github.com/DevForge-Vision/Halcon-Library/releases/tag/v0.0.1)
+- 릴리스 태그 소스: c6a649c12a63ac3ffe3a68b051a15daf17af2ee8. 로컬 v145 패키지와 공개 v143 패키지를 구분한다.
+
 ## 남은 검증
 - VS2022/v143 Actions 빌드 및 배포 결과는 별도 확인. 로컬 v145 결과로 대체하지 않는다.
 - 원본 BMP, 정상 이미지, 정답 마스크/그룹 라벨, 현장 합격 기준이 없어 검출 정확도·오병합률은 미판정.
