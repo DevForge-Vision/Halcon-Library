@@ -12,6 +12,8 @@ try {
 		'v142' { $components += 'Microsoft.VisualStudio.ComponentGroup.VC.Tools.142.x86.x64', 'Microsoft.VisualStudio.Component.VC.14.29.16.11.MFC' }
 		'v143' { $components += 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64', 'Microsoft.VisualStudio.Component.VC.ATLMFC' }
 	}
+	$ready = & $vswhere -latest -products '*' -version '[17.0,18.0)' -requires $components -property installationPath
+	if ($ready -eq $installPath) { Write-Output "$Toolset components already installed."; return }
 	$arguments = @('modify', '--installPath', ('"' + $installPath + '"'), '--quiet', '--norestart')
 	foreach ($component in $components) { $arguments += @('--add', $component) }
 	$process = Start-Process (Join-Path $installerRoot 'setup.exe') -ArgumentList $arguments -WindowStyle Hidden -PassThru -Wait

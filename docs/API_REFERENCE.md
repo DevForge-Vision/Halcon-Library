@@ -1,6 +1,6 @@
-# GlimHalcon SDK 공식 API Reference
+﻿# GlimHalcon SDK 공식 API Reference
 
-문서 버전 1.0 · 2026-11-06 · 이미지 API v1 · SDK 0.0.1 소스 계열
+문서 버전 1.0 · 2026-11-06 · 이미지 API v1 · SDK 0.0.2 소스 계열
 
 이 문서는 저장소 구현을 기준으로 한 사용자 계약이다. HALCON 제품의 공식 문서가 아니다. HALCON 실물 수치 일치와 현장 검출 정확도는 별도 검증 대상이다.
 

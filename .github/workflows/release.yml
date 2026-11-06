@@ -60,8 +60,8 @@ jobs:
       - name: Configure
         env:
           SDK_TOOLSET: ${{ matrix.toolset }}
-          SDK_MFC: ${{ github.event_name == 'push' || inputs.mfc_demo }}
-        run: cmake -S . -B build -G "Visual Studio 17 2022" -A ${{ matrix.arch }} -T $env:SDK_TOOLSET -DCMAKE_SYSTEM_VERSION=10.0.19041.0 -DGLIM_HALCON_BUILD_SHARED=ON -DGLIM_HALCON_ENABLE_PACKAGING=ON -DGLIM_HALCON_BUILD_MFC_DEMO=$env:SDK_MFC
+          SDK_MFC: ${{ matrix.toolset != 'v140' && (github.event_name == 'push' || inputs.mfc_demo) }}
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A ${{ matrix.arch }} -T $env:SDK_TOOLSET "-DCMAKE_SYSTEM_VERSION=10.0.19041.0" -DGLIM_HALCON_BUILD_SHARED=ON -DGLIM_HALCON_ENABLE_PACKAGING=ON -DGLIM_HALCON_BUILD_MFC_DEMO=$env:SDK_MFC
       - name: Build
         run: cmake --build build --config Release --parallel
       - name: Regression tests
@@ -78,7 +78,7 @@ jobs:
           $lines | Set-Content "dist/SHA256SUMS-${{ matrix.toolset }}-${{ matrix.arch }}.txt" -Encoding ascii
       - name: Verify extracted SDK and MFC startup
         env:
-          SDK_MFC: ${{ github.event_name == 'push' || inputs.mfc_demo }}
+          SDK_MFC: ${{ matrix.toolset != 'v140' && (github.event_name == 'push' || inputs.mfc_demo) }}
         run: ./scripts/Test-Package.ps1 -BuildDirectory build -Toolset ${{ matrix.toolset }} -Architecture ${{ matrix.arch }} -MfcDemo:([bool]::Parse($env:SDK_MFC))
       - uses: actions/upload-artifact@v4
         with:

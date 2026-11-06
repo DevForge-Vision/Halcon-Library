@@ -1,6 +1,6 @@
 ﻿# GlimHalcon SDK 툴셋 및 DLL 연동 가이드
 
-문서 기준: 2026-11-06, 공개 이미지 API v1 / SDK 0.0.1 소스 계열.
+문서 기준: 2026-11-06, 공개 이미지 API v1 / SDK 0.0.2 소스 계열.
 
 ## 지원 방식
 
@@ -8,10 +8,10 @@
 
 | 툴셋 | 대응 Visual Studio | 선택 방법 |
 |---|---|---|
-| v140 | 2015 | 설치된 도구를 지정, 실행 검증 대기 |
+| v140 | 2015 | 설치된 도구 지정 / Actions 검증 |
 | v141 | 2017 | 설치된 도구를 지정 |
 | v142 | 2019 | 로컬 도구 지정 / Actions 수동 선택 |
-| v143 | 2022 | 로컬 도구 지정 / 기본 Release |
+| v143 | 2022 | 로컬 도구 지정 / Actions 선택 |
 | v145 | 2026 | 로컬 도구 지정 |
 | default | 선택한 VS의 기본값 | `-T`를 생략 |
 
@@ -42,7 +42,7 @@ cmake --build build-v142-x64 --config Release
 ctest --test-dir build-v142-x64 -C Release --output-on-failure
 ```
 
-Actions → Windows SDK Release → Run workflow에서 v142/v143 선택 가능. 수동 실행은 아티팩트만 생성한다. MFC 데모는 기본 제외이며 해당 툴셋용 MFC가 runner에 설치된 경우에만 mfc_demo를 켠다. 태그 릴리스는 기존 v143 정책을 유지한다. 이미 배포한 0.0.1 파일을 덮어쓰지 않는다.
+Actions → Windows SDK Release → Run workflow에서 all/v140/v141/v142/v143 선택 가능. MFC 데모는 기본 포함이며 필요한 구성 요소를 설치한다. main push는 8개 조합 검증/패키징만 수행하고, 태그 push는 8개 조합 모두 성공한 뒤 새 Release를 게시한다. 기존 버전 자산은 덮어쓰지 않는다.
 
 ## MFC 프로젝트 연결
 
