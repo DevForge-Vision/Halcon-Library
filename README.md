@@ -1,8 +1,14 @@
-﻿> 2026-11-05: DLL/MFC 실행 검증 현황은 [실행 보고서](docs/10_EXECUTION_VERIFICATION.md)를 참고하세요. SDK 0.0.1 시험 배포이며 HALCON 실측·생산 승인과 구분합니다.
+﻿## 공식 SDK 문서
+
+- [API Reference — 함수, 매개변수, 결과값, C++ 예제](docs/API_REFERENCE.md)
+- [툴셋 선택 및 호환성](docs/TOOLSET_GUIDE.md)
+- [v141/v142 실행 검증](docs/11_TOOLSET_VERIFICATION.md)
+
+> 2026-11-05: DLL/MFC 실행 검증 현황은 [실행 보고서](docs/10_EXECUTION_VERIFICATION.md)를 참고하세요. SDK 0.0.1 시험 배포이며 HALCON 실측·생산 승인과 구분합니다.
 
 ## 0.0.1 자동 배포 준비
 
-GitHub Actions의 Windows SDK Release가 버전 태그를 기준으로 x64/x86 설치 EXE와 ZIP, SHA256 파일을 GitHub Pre-release에 게시하도록 구성했습니다. 현재는 소스 준비 상태이며 실행·설치파일 생성은 하지 않았습니다.
+GitHub Actions의 Windows SDK Release가 버전 태그를 기준으로 x64/x86 설치 EXE와 ZIP, SHA256 파일을 GitHub Pre-release에 게시하도록 구성했습니다. v0.0.1 설치파일은 Release에 게시됐습니다. 이후 변경 사항은 main 소스와 문서에서 확인합니다.
 
 배포 절차: [Release workflow](docs/07_RELEASE_WORKFLOW.md) · [0.0.1 릴리스 노트](docs/releases/0.0.1.md)
 
