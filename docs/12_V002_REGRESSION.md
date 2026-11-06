@@ -2,6 +2,8 @@
 
 검증일: 2026-11-06. 빌드 및 실행은 사용자의 명시적 승인으로 수행했다.
 
+후속 검증: [설치 EXE 8조합 설치·제거 통과](13_INSTALLER_VERIFICATION.md). 깨끗한 PC 검증은 별도 미완료다.
+
 ## 실제 통과 결과
 
 [전체 8개 조합 검증 실행](https://github.com/DevForge-Vision/Halcon-Library/actions/runs/42260901821), 검증 소스 966e93d9853c5d40e8f4230582c317156669ffd7.
