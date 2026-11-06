@@ -1,0 +1,14 @@
+﻿#pragma once
+#define IDD_MAIN 101
+#define IDC_BTN_OPEN 1001
+#define IDC_BTN_RUN 1002
+#define IDC_EDIT_THRESHOLD 1003
+#define IDC_EDIT_AREA 1004
+#define IDC_EDIT_GAP 1005
+#define IDC_EDIT_OFFSET 1006
+#define IDC_LIST_RESULTS 1007
+#define IDC_STATUS 1008
+#define IDC_ORIGINAL 1009
+#define IDC_MASK 1010
+#define IDC_MODE 1011
+
