@@ -1444,3 +1444,43 @@ Diameter = max over (p, q) in boundary(R) of  sqrt( (r_p − r_q)^2 + (c_p − c
 ---
 
 ← 이전: [아키텍처](01_ARCHITECTURE.md)  |  [🏠 홈](../README.md)  |  다음: [정의 검증 계획 →](03_VERIFICATION.md)
+# RegionFeatures20 추가 정의 (2026-11-06)
+
+HALCON 13 `region_features` 원문 목록 1~20번을 순서 그대로 반환한다.
+기존 BlobFeatures/DefectFeatures 레이아웃은 변경하지 않는다.
+새 조회 API는 실패 시 값을 0으로 초기화하며, ImageStatus::Ok일 때만 값을 사용한다.
+
+1 anisometry, 2 area, 3 area_holes, 4 bulkiness, 5 circularity,
+6 column, 7 column1, 8 column2, 9 compactness, 10 connect_num,
+11 contlength, 12 convexity, 13 dist_deviation, 14 dist_mean,
+15 euler_number, 16 height, 17 holes_num, 18 inner_height,
+19 inner_radius, 20 inner_width.
+
+기존 15항목은 기존 shape/moments/topology와 inclusive bbox에서 가져온다.
+column은 전역 이미지 좌표의 면적 중심, column1/2는 bbox의 포함 끝점이다.
+그룹은 빈 간격을 채우지 않은 원래 픽셀 합집합을 사용한다.
+
+추가 5항목은 다음 잠정 정의를 사용하며 provisionalMask로 표시한다.
+마스크가 0인 다른 항목도 HALCON 실측 일치를 보장한다는 뜻은 아니다.
+
+- RF20-D1: dist_mean/deviation은 8이웃 경계 픽셀을 각각 한 번 세어
+  면적 중심까지 거리의 평균/모집단 표준편차를 구한다. 구멍 경계를 포함한다.
+  원문 G2 roundness는 이웃 설정 의존성을 명시하지만 구멍/반복 체인 처리까지
+  확정하지 않는다. GLIM_RF20_EXTERNAL_CONTOUR=1이면 기존 외곽 체인의
+  중복 픽셀을 제거한 집합을 사용한다. 기본값 0. 링/가는 선으로 실측 판별한다.
+- RF20-R1: inner_height/width는 최대 면적의 축평행 내접 픽셀 직사각형의
+  포함 높이/폭이다. 동률은 (top,left,bottom,right) 사전순으로 정한다.
+  GLIM_RF20_RECT_PERIMETER=1이면 대안인 최대 (height+width) 기준을 사용한다.
+  원문 G3는 최대의 기준과 동률 규칙을 명시하지 않는다. 기본값 0.
+- RF20-C1: inner_radius는 전경 픽셀 중심에 놓인 정수 반지름 원 중 최대값이다.
+  가장 가까운 배경 픽셀 중심까지 거리 d에 대해 ceil(d)-1을 사용한다.
+  반지름 r 이하의 모든 격자점이 전경에 포함되는 이산 원의 정의다.
+  GLIM_RF20_RADIUS_CELL=1이면 대안 max(0,d-0.5)를 사용한다.
+  원문 G3의 이산 원 생성/반올림 관례는 확정되지 않았다. 기본값 0.
+  두 정책 모두 HALCON 실측 전이며 공식 inner_circle 동등 구현으로 표시하지 않는다.
+
+바운딩 박스에 배경 1픽셀을 두른 면적이 4,194,304픽셀을 넘으면
+ResourceLimit을 반환한다. 내접원은 정확한 제곱 유클리드 거리 변환,
+내접 사각형은 행별 히스토그램 단조 스택으로 O(bbox 면적)에 계산한다.
+공개 API 밖으로 예외를 전달하지 않는다. 기존 분석 API의 비용은 바뀌지 않으며
+확장 조회 호출 시에만 추가 계산한다.

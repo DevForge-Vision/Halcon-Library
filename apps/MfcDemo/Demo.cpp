@@ -70,6 +70,33 @@ private:
 		m_list.SetExtendedStyle(LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
 		const char* names[] = {"Index", "Parts", "Area(px)", "X", "Y", "Width", "Height", "Mean", "StdDev"};
 		for (int i = 0; i < 9; ++i) m_list.InsertColumn(i, names[i], LVCFMT_LEFT, 85);
+		const wchar_t* featureNames[] = {
+			L"anisometry | 장축/단축 비율 [무단위]",
+			L"area | 검출된 전경 픽셀 수 [pixel]",
+			L"area_holes | 내부 구멍 픽셀 수 [pixel]",
+			L"bulkiness | 등가 타원 면적/전경 면적 [무단위]",
+			L"circularity | 원형에 가까운 정도 [무단위]",
+			L"column | 면적 무게중심 X 좌표 [px]",
+			L"column1 | 외접 사각형 왼쪽 끝 X [px]",
+			L"column2 | 외접 사각형 오른쪽 끝 X [px]",
+			L"compactness | 윤곽 길이 대비 면적 형상 지표 [무단위]",
+			L"connect_num | 분리된 전경 조각 수 [개]",
+			L"contlength | 구멍을 제외한 외곽 윤곽 길이 [px]",
+			L"convexity | 전경 면적/볼록 껍질 면적 [무단위]",
+			L"dist_deviation* | 중심-경계 거리 표준편차 [px]",
+			L"dist_mean* | 중심-경계 거리 평균 [px]",
+			L"euler_number | 조각 수 - 구멍 수 [개]",
+			L"height | 외접 사각형 포함 높이 [px]",
+			L"holes_num | 내부 구멍 수 [개]",
+			L"inner_height* | 최대 내접 사각형 높이 [px]",
+			L"inner_radius* | 내접 이산 원 반지름 [px]",
+			L"inner_width* | 최대 내접 사각형 폭 [px]"};
+		for (int i = 0; i < 20; ++i)
+		{
+			LVCOLUMNW column = {}; column.mask = LVCF_TEXT | LVCF_WIDTH;
+			column.pszText = const_cast<wchar_t*>(featureNames[i]); column.cx = 370;
+			::SendMessageW(m_list.GetSafeHwnd(), LVM_INSERTCOLUMNW, 9 + i, reinterpret_cast<LPARAM>(&column));
+		}
 		SetDlgItemText(IDC_EDIT_THRESHOLD, "10"); SetDlgItemText(IDC_EDIT_AREA, "1");
 		SetDlgItemText(IDC_EDIT_GAP, "12"); SetDlgItemText(IDC_EDIT_OFFSET, "4");
 		return TRUE;
@@ -143,6 +170,14 @@ private:
 				double(grouped ? d.height : b.height), grouped ? d.meanGray : b.meanGray, grouped ? d.deviationGray : b.deviationGray};
 			CString text; text.Format("%d", int(i)); m_list.InsertItem(int(i), text);
 			for (int col = 1; col < 9; ++col) { text.Format(col < 7 ? "%.0f" : "%.3f", values[col]); m_list.SetItemText(int(i), col, text); }
+			const auto& extended = grouped ? m_result->defectFeatures20[i] : m_result->blobFeatures20[i];
+			const auto status = grouped ? m_result->defectFeatures20Status[i] : m_result->blobFeatures20Status[i];
+			for (int col = 0; col < 20; ++col)
+			{
+				if (status == ImageStatus::Ok) text.Format("%.9g", extended.values[col]);
+				else text.Format("N/A (status %d)", int(status));
+				m_list.SetItemText(int(i), 9 + col, text);
+			}
 		}
 	}
 	afx_msg void OnTimer(UINT_PTR id)
@@ -153,7 +188,7 @@ private:
 		{
 			m_result = m_pending.get(); Populate();
 			CString text;
-			if (m_result->status == ImageStatus::Ok) text.Format("Complete: %d blobs, %d grouped defects. Select a row for its mask.", int(m_result->blobRows.size()), int(m_result->defectRows.size()));
+			if (m_result->status == ImageStatus::Ok) text.Format("%d blobs, %d groups. Scroll right: 20 features. * provisional definition; HALCON parity unverified. N/A = query failed.", int(m_result->blobRows.size()), int(m_result->defectRows.size()));
 			else text.Format("Analysis failed: ImageStatus=%d (see SDK enum). No partial results displayed.", int(m_result->status));
 			Status(text);
 		}

@@ -107,6 +107,27 @@ struct DefectFeatures
 };
 #pragma pack(pop)
 struct DefectResult;
+// HALCON 13 region_features names 1..20; enum values are zero-based indices.
+enum class RegionFeature20 : int
+{
+	Anisometry, Area, AreaHoles, Bulkiness, Circularity, Column, Column1, Column2,
+	Compactness, ConnectNum, Contlength, Convexity, DistDeviation, DistMean,
+	EulerNumber, Height, HolesNum, InnerHeight, InnerRadius, InnerWidth
+};
+#pragma pack(push, 8)
+struct RegionFeatures20
+{
+	std::uint32_t structSize;
+	std::uint32_t apiVersion;
+	std::uint32_t provisionalMask; // Bit i: definition still needs HALCON calibration.
+	std::uint32_t policyFlags; // 1=external contour, 2=rectangle perimeter, 4=cell radius.
+	double values[20]; // Read only when the API returns Ok. No HALCON parity claim.
+};
+#pragma pack(pop)
+// On-demand calculation; existing result layouts and analysis behavior are unchanged.
+// Bounding box plus 1-pixel padding is limited to 4,194,304 pixels.
+GLIM_HALCON_API ImageStatus GLIM_HALCON_CALL GetBlobRegionFeatures20(const ImageResult* result, int index, RegionFeatures20* features, std::uint32_t bytes);
+GLIM_HALCON_API ImageStatus GLIM_HALCON_CALL GetDefectRegionFeatures20(const DefectResult* result, int index, RegionFeatures20* features, std::uint32_t bytes);
 GLIM_HALCON_API ImageStatus GLIM_HALCON_CALL GetDefaultDefectGroupingSettings(DefectGroupingSettings* settings, std::uint32_t bytes);
 // Independent snapshot, valid after releasing the source. No pixels are invented.
 GLIM_HALCON_API ImageStatus GLIM_HALCON_CALL GroupBlobDefects(const ImageResult* source, const DefectGroupingSettings* settings, DefectResult** result);

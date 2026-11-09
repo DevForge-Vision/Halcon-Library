@@ -23,6 +23,9 @@ std::shared_ptr<Result> Analyze(std::vector<unsigned char> pixels, int width, in
 			result->status = GetBlobFeatures(raw, i, &f, sizeof(f));
 			if (result->status != ImageStatus::Ok) return result;
 			result->blobRows.push_back(f);
+			RegionFeatures20 extended = {};
+			result->blobFeatures20Status.push_back(GetBlobRegionFeatures20(raw, i, &extended, sizeof(extended)));
+			result->blobFeatures20.push_back(extended);
 		}
 		result->status = GetDefectCount(grouped, &count);
 		if (result->status != ImageStatus::Ok) return result;
@@ -32,6 +35,9 @@ std::shared_ptr<Result> Analyze(std::vector<unsigned char> pixels, int width, in
 			result->status = GetDefectFeatures(grouped, i, &f, sizeof(f));
 			if (result->status != ImageStatus::Ok) return result;
 			result->defectRows.push_back(f);
+			RegionFeatures20 extended = {};
+			result->defectFeatures20Status.push_back(GetDefectRegionFeatures20(grouped, i, &extended, sizeof(extended)));
+			result->defectFeatures20.push_back(extended);
 		}
 	}
 	catch (const std::bad_alloc&) { result->status = ImageStatus::OutOfMemory; }

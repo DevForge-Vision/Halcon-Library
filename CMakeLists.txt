@@ -11,7 +11,7 @@
 #=====================================================================================
 cmake_minimum_required(VERSION 3.15)
 
-project(GlimHalcon VERSION 0.0.2 LANGUAGES CXX)
+project(GlimHalcon VERSION 0.0.3 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -46,10 +46,13 @@ set(GLIM_HALCON_SOURCES
 	src/Core/Holes.cpp
 	src/Feature/FeatureContext.h
 	src/Feature/FeatureContext.cpp
+	src/Feature/RegionFeatures20.h
+	src/Feature/RegionFeatures20.cpp
 	src/Facade/Operators.cpp
 	src/Facade/Inspection.cpp
 	src/Facade/ImageAnalysis.cpp
 	src/Facade/DefectGrouping.cpp
+	src/Facade/RegionFeatures20.cpp
 	src/Image/ImageResultInternal.h
 	src/Image/ImageInternal.h
 	src/Image/BmpReader.cpp
@@ -118,6 +121,9 @@ add_test(NAME GlimHalconShapes COMMAND GlimHalconTest)
 add_executable(GlimImageTest test/ImageTest.cpp)
 target_link_libraries(GlimImageTest PRIVATE GlimHalcon)
 add_test(NAME GlimImageContract COMMAND GlimImageTest)
+add_executable(GlimRegionFeatures20Test test/RegionFeatures20Test.cpp)
+target_link_libraries(GlimRegionFeatures20Test PRIVATE GlimHalcon)
+add_test(NAME GlimRegionFeatures20 COMMAND GlimRegionFeatures20Test)
 add_executable(GlimDefectTest test/DefectTest.cpp)
 target_link_libraries(GlimDefectTest PRIVATE GlimHalcon)
 add_test(NAME GlimDefectGrouping COMMAND GlimDefectTest)

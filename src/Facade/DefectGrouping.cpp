@@ -7,13 +7,6 @@
 #include <new>
 
 namespace glim { namespace halcon {
-struct DefectResult
-{
-	int m_width, m_height;
-	std::vector<DefectFeatures> m_features;
-	std::vector<std::vector<int>> m_members;
-	std::vector<std::vector<Run>> m_runs;
-};
 namespace {
 struct Bounds { double begin, end, minAcross, maxAcross; };
 struct Edge { double gap, offset; int first, second; };

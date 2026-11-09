@@ -1209,3 +1209,29 @@ stop ()
 ---
 
 ← 이전: [특징값 정의서](02_DEFINITIONS.md)  |  [🏠 홈](../README.md)  |  다음: [구현 노트 →](04_IMPLEMENTATION_NOTES.md)
+# RegionFeatures20 사전 계산 및 검증 계획 (2026-11-06)
+
+새 테스트는 작성만 하며 빌드/실행하지 않는다. HALCON 대조는 미실시다.
+
+- 단일 픽셀 (row=2,col=3): area=1, column/column1/column2=3,
+  connect_num=1, holes_num/area_holes=0, euler_number=1, height=1.
+  중심과 경계가 같아 dist_mean=dist_deviation=0.
+  inner_height=inner_width=1. 최근접 배경 거리=1, 기본 inner_radius=ceil(1)-1=0.
+  대안 cell 정책은 0.5로 판별 가능.
+- 3x3 정사각형 (row 2..4,col 3..5): area=9, column=4,
+  column1=3,column2=5,height=3, 내접 사각형=3x3.
+  경계 8점 거리: 1 네 개, sqrt(2) 네 개.
+  dist_mean=(1+sqrt(2))/2, dist_deviation=(sqrt(2)-1)/2.
+  중심에서 최근접 배경 거리=2, 기본 inner_radius=1, 대안=1.5.
+- 두 3x3 정사각형 row 2..4와 7..9,col 3..5를 그룹화:
+  area=18, column=4,height=8,connect_num=2,euler_number=2,
+  내접 사각형=3x3,inner_radius=1. 간격 2행은 전경으로 만들지 않는다.
+  소스 핸들을 해제한 뒤 그룹 확장 조회도 유지되어야 한다.
+- 3x3 링(중심 제거): area=8,area_holes=1,holes_num=1,euler_number=0,
+  기본 내접원=0, 최대 직사각형 동률은 위쪽 1x3을 선택한다.
+- RF20-D1 판별은 7x7 링과 1픽셀 선을 HALCON에서 측정한다.
+  구멍 경계 포함 여부/체인 반복을 검증하기 전 provisionalMask를 제거하지 않는다.
+- RF20-R1 판별은 한 리전에 4x4 블록과 1x10 막대를 분리 배치한다.
+  면적 최대 4x4, 둘레 최대 1x10으로 두 정책을 판별한다.
+- 잘못된 인덱스/null/크기 불일치, ROI 전역 좌표, 새 POD packing,
+  그룹과 Blob 동일 마스크 결과, 과대 bbox ResourceLimit을 회귀 검사한다.

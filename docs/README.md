@@ -24,6 +24,11 @@
 | 5 | [`04_IMPLEMENTATION_NOTES.md`](04_IMPLEMENTATION_NOTES.md) | Phase 1 실측 결과 · 문서 보정 4건 · 남은 리스크 |
 | 6 | [`reference/halcon13/`](reference/halcon13/README.md) | HALCON 13 원문 아카이브. 새 오퍼레이터를 추가할 때 |
 
+### Blob/그룹 확장값
+
+[region_features 1~20 사용법](15_REGION_FEATURES20.md): 추가 API, 반환 순서,
+MFC 표시, 잠정 정의 및 검증 상태. 현재 미빌드·미배포 소스다.
+
 ### 1.2 목적별 진입 경로
 
 | 지금 하려는 일 | 이렇게 들어가세요 |

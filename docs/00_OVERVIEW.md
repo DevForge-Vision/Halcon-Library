@@ -233,3 +233,9 @@ MVTec HALCON 13 의 **Regions ▸ Features** 오퍼레이터 40종을, HALCON SD
 ---
 
 ← 이전: [문서 허브](README.md)  |  [🏠 홈](../README.md)  |  다음: [아키텍처 →](01_ARCHITECTURE.md)
+# 2026-11-06 추가: region_features 1~20 조회
+
+Blob/그룹별 20개 값 반환 API와 MFC 표시 소스를 추가했다.
+기존 15개 값 매핑 + 잠정 정의 5개 계산이며, 20개 전부 HALCON 검증 완료라는 의미가 아니다.
+**미빌드·회귀 미실행·미배포**. 기존 40종 구현 완료 집계에는 추가하지 않는다.
+상세 사용법 및 미결 사항: [RegionFeatures20](15_REGION_FEATURES20.md).
